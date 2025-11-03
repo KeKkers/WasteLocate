@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, Search, MapPin, Phone, Mail, LogIn, LogOut, Settings, Plus, Edit2, Trash2, Home, AlertCircle } from 'lucide-react';
+import { ChevronDown, Search, MapPin, Phone, Mail, Globe, LogIn, LogOut, Settings, Plus, Edit2, Trash2, Home, AlertCircle } from 'lucide-react';
 import { supabase } from './supabaseClient';
-
-console.log(import.meta.env.VITE_SUPABASE_URL)
-console.log(import.meta.env.VITE_SUPABASE_ANON_KEY)
 
 export default function EWCWasteManagementSystem() {
   const [currentView, setCurrentView] = useState('public');
@@ -72,12 +69,14 @@ export default function EWCWasteManagementSystem() {
           ewc_code
         )
       `)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(1000);
 
     if (error) {
       console.error('Error loading facilities:', error);
+      alert('Error loading facilities: ' + error.message);
     } else {
-      setAdminFacilities(data);
+      setAdminFacilities(data || []);
     }
   };
 
@@ -89,10 +88,15 @@ export default function EWCWasteManagementSystem() {
     const { data, error } = await supabase
       .from('facility_waste_codes')
       .select(`
-        *,
+        notes,
+        max_volume,
+        volume_unit,
+        price_per_unit,
+        currency,
         facilities (
           id,
           name,
+          operator_name,
           permit_number,
           address_line1,
           address_line2,
@@ -115,12 +119,14 @@ export default function EWCWasteManagementSystem() {
       const formattedFacilities = data.map(item => ({
         id: item.facilities.id,
         name: item.facilities.name,
+        operator_name: item.facilities.operator_name,
         permit_number: item.facilities.permit_number,
         address: `${item.facilities.address_line1}${item.facilities.address_line2 ? ', ' + item.facilities.address_line2 : ''}, ${item.facilities.city}`,
         postcode: item.facilities.postcode,
         phone: item.facilities.phone,
         email: item.facilities.email,
         website: item.facilities.website,
+        notes: item.notes,
         max_volume: item.max_volume,
         volume_unit: item.volume_unit,
         price_per_unit: item.price_per_unit,
@@ -146,6 +152,15 @@ export default function EWCWasteManagementSystem() {
     return Object.keys(subchapters)
       .sort((a, b) => a.localeCompare(b))
       .map(key => ({ code: key, name: subchapters[key].name }));
+  };
+
+  const isHazardous = (description) => {
+    if (!description) return false;
+    const desc = description.toUpperCase();
+    // Check for hazard indicators - they're usually at the end
+    return desc.includes(' MH') || desc.includes(' AH') || 
+           desc.includes('MH ') || desc.includes('AH ') ||
+           desc.endsWith('MH') || desc.endsWith('AH');
   };
 
   const getCodes = () => {
@@ -188,9 +203,12 @@ export default function EWCWasteManagementSystem() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">EWC Waste Management System</h1>
-            <p className="text-gray-600">Find permitted facilities for your waste</p>
+          <div className="flex items-center gap-4">
+            <img src="./logo.png" alt="WasteLocate Logo" className="h-16 w-auto" />
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800">WasteLocate - EWC Search Engine</h1>
+              <p className="text-gray-600">Find permitted facilities for your waste</p>
+            </div>
           </div>
           <button
             onClick={() => setCurrentView('login')}
@@ -200,6 +218,48 @@ export default function EWCWasteManagementSystem() {
             Admin
           </button>
         </div>
+
+<section class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+
+  
+  <div class="bg-white border border-neutral-200 dark:border-neutral-700 rounded-lg p-5">
+    <h2 class="text-lg font-semibold mb-2">How to Use</h2>
+    <ol class="list-decimal ml-5 space-y-2 text-sm">
+      <li>Select the <strong>waste origin</strong> (where the waste is generated).</li>
+      <li>Then select the <strong>process</strong> that creates the waste.</li>
+      <li>Make the final selection to view the most relevant <strong>EWC code</strong>.</li>
+    </ol>
+    <p class="text-sm mt-3">
+      Once selected, a list of disposal sites that accept this waste type will be available providing we hold the details in our database.
+    </p>
+        <p class="text-sm mt-3">
+      <i>If you are a permitted facility and you would like your infomation included, please drop us an email!</i>
+    </p>
+  </div>
+
+  <div class="bg-white border border-red-300 dark:border-red-600 rounded-lg p-5">
+    <h2 class="text-lg font-semibold text-red-700 dark:text-red-400 mb-2">
+      Important Disclaimer
+    </h2>
+    <p class="text-sm leading-relaxed">
+      This tool is provided as a <strong>guide only</strong>. You must always follow the official <strong><a href="https://assets.publishing.service.gov.uk/media/6152d0b78fa8f5610b9c222b/Waste_classification_technical_guidance_WM3.pdf" class="underline text-blue-600 dark:text-blue-400" target="_blank" rel="noopener">WM3: Guidance on the Classification and Assessment of Waste</a></strong> and ensure compliance with all applicable legislation and internal procedures.
+    </p>
+    <p class="text-sm leading-relaxed mt-2">
+      Key legislation includes:
+      <ul class="list-disc ml-5 mt-1 text-xs text-neutral-700 dark:text-neutral-400">
+        <li><a href="https://www.legislation.gov.uk/uksi/2011/988/contents" class="underline text-blue-600 dark:text-blue-400" target="_blank" rel="noopener">The Waste (England and Wales) Regulations 2011</a></li>
+        <li><a href="https://www.legislation.gov.uk/uksi/2005/894/contents" class="underline text-blue-600 dark:text-blue-400" target="_blank" rel="noopener">The Hazardous Waste (England and Wales) Regulations 2005</a></li>
+        <li><a href="https://www.gov.uk/government/publications/waste-duty-of-care-code-of-practice" class="underline text-blue-600 dark:text-blue-400" target="_blank" rel="noopener">Waste Duty of Care Code of Practice</a></li>
+      </ul>
+    </p>
+    <p class="text-xs text-neutral-600 dark:text-neutral-400 mt-3">
+      Decisions made using this tool remain your responsibility. If uncertain, consult WM3 or seek professional advice.
+    </p>
+  </div>
+
+</section>
+
+
 
         <div className="bg-white rounded-lg shadow-xl p-6 md:p-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">Select Waste Code</h2>
@@ -276,7 +336,13 @@ export default function EWCWasteManagementSystem() {
             <div className="mb-8">
               <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 mb-4">
                 <p className="text-sm font-semibold text-gray-800">Selected: {finalSelection.code}</p>
-                <p className="text-sm text-gray-600">{finalSelection.description}</p>
+                <p className="text-sm text-gray-600 mb-2">{finalSelection.description}</p>
+                <p className="text-sm">
+                  <span className="font-semibold">Classification: </span>
+                  <span className={isHazardous(finalSelection.description) ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
+                    {isHazardous(finalSelection.description) ? 'Hazardous (MH/AH)' : 'Non-hazardous (AN/MN)'}
+                  </span>
+                </p>
               </div>
               <button
                 onClick={searchFacilities}
@@ -306,8 +372,13 @@ export default function EWCWasteManagementSystem() {
                   <div key={facility.id} className="border-2 border-gray-200 rounded-lg p-6 hover:border-green-500">
                     <div className="flex justify-between mb-4">
                       <div>
-                        <h4 className="text-lg font-bold text-gray-800">{facility.name}</h4>
-                        <p className="text-sm text-gray-600">{facility.permit_number}</p>
+                        {facility.operator_name && (
+                          <h4 className="text-lg font-bold text-gray-800">{facility.operator_name}</h4>
+                        )}
+                        <p className={`${facility.operator_name ? 'text-sm' : 'text-lg font-bold'} text-gray-600`}>
+                          {facility.name}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">{facility.permit_number}</p>
                       </div>
                     </div>
                     <div className="space-y-2 mb-4 text-sm">
@@ -318,20 +389,43 @@ export default function EWCWasteManagementSystem() {
                       {facility.phone && (
                         <div className="flex items-center gap-2 text-gray-600">
                           <Phone className="w-4 h-4" />
-                          <span>{facility.phone}</span>
+                          <a href={`tel:${facility.phone}`} className="text-blue-600 hover:underline">
+                            {facility.phone}
+                          </a>
                         </div>
                       )}
                       {facility.email && (
                         <div className="flex items-center gap-2 text-gray-600">
                           <Mail className="w-4 h-4" />
-                          <span>{facility.email}</span>
+                          <a href={`mailto:${facility.email}`} className="text-blue-600 hover:underline">
+                            {facility.email}
+                          </a>
+                        </div>
+                      )}
+                      {facility.website && (
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <Globe className="w-4 h-4" />
+                          <a 
+                            href={facility.website.startsWith('http') ? facility.website : `https://${facility.website}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-blue-600 hover:underline"
+                          >
+                            Visit Website
+                          </a>
                         </div>
                       )}
                     </div>
-                    <div className="bg-gray-50 rounded p-3 text-sm">
+                    <div className="bg-gray-50 rounded p-3 text-sm space-y-1">
                       <p className="font-semibold text-gray-700">Capacity: {facility.max_volume} {facility.volume_unit}</p>
                       {facility.price_per_unit && (
                         <p className="text-gray-600">Price: £{facility.price_per_unit} per tonne</p>
+                      )}
+                      {facility.notes && (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <p className="text-xs font-semibold text-gray-700 mb-1">Notes:</p>
+                          <p className="text-xs text-gray-600">{facility.notes}</p>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -351,6 +445,7 @@ export default function EWCWasteManagementSystem() {
     </div>
   );
 }
+
 
 function LoginView({ onLogin, onBack }) {
   const [email, setEmail] = useState('');
@@ -417,6 +512,21 @@ function LoginView({ onLogin, onBack }) {
 function AdminPanel({ facilities, onRefresh, onLogout, onBack }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingFacility, setEditingFacility] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const itemsPerPage = 50;
+
+  // Filter facilities based on search
+  const filteredFacilities = facilities.filter(f => 
+    f.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    f.permit_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    f.postcode?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Paginate facilities
+  const totalPages = Math.ceil(filteredFacilities.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedFacilities = filteredFacilities.slice(startIndex, startIndex + itemsPerPage);
 
   const deleteFacility = async (id) => {
     if (!confirm('Are you sure you want to delete this facility?')) return;
@@ -471,15 +581,32 @@ function AdminPanel({ facilities, onRefresh, onLogout, onBack }) {
         </div>
 
         <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-800">Facilities</h2>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-            >
-              <Plus className="w-4 h-4" />
-              Add Facility
-            </button>
+          <div className="p-6 border-b">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <h2 className="text-xl font-bold text-gray-800">Facilities</h2>
+              <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                <input
+                  type="text"
+                  placeholder="Search by name, permit, or postcode..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 w-full md:w-64"
+                />
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Facility
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mt-2">
+              Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredFacilities.length)} of {filteredFacilities.length} facilities
+            </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -493,7 +620,7 @@ function AdminPanel({ facilities, onRefresh, onLogout, onBack }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {facilities.map(facility => (
+                {paginatedFacilities.map(facility => (
                   <tr key={facility.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-800">{facility.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{facility.permit_number}</td>
@@ -526,6 +653,27 @@ function AdminPanel({ facilities, onRefresh, onLogout, onBack }) {
               </tbody>
             </table>
           </div>
+          {totalPages > 1 && (
+            <div className="p-4 border-t flex items-center justify-between">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-600">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -834,5 +982,6 @@ function EditFacilityModal({ facility, onClose, onSuccess }) {
         </div>
       </div>
     </div>
+
   );
 }
