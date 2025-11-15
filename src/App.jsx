@@ -18,7 +18,7 @@ export default function EWCWasteManagementSystem() {
   
 // SEO Meta tags
   useEffect(() => {
-    document.title = 'WasteLocate | Find Permitted Waste Facilities in UK';
+    document.title = 'Find Permitted Waste Facilities in UK';
     
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
@@ -496,7 +496,7 @@ export default function EWCWasteManagementSystem() {
             <img 
               src="/wastelocate-logo.png" 
               alt="WasteLocate Logo" 
-              className="h-16 w-auto"
+              className="h-20 w-auto"
               onError={(e) => {
                 e.target.style.display = 'none';
                 e.target.nextSibling.style.display = 'flex';
@@ -506,7 +506,6 @@ export default function EWCWasteManagementSystem() {
               WL
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">WasteLocate</h1>
               <p className="text-gray-600">Find permitted facilities for your waste</p>
             </div>
           </div>
