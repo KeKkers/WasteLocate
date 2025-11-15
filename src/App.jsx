@@ -1003,7 +1003,7 @@ function PricingView({ onBack, user, userProfile, onSuccess }) {
     try {
       console.log('Starting checkout for:', { priceId, productType, userId: user.id });
       
-      const response = await fetch('/.netlify/functions/create-checkout-session', {
+      const response = await fetch('/netlify/functions/create-checkout-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
