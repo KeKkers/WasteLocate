@@ -993,28 +993,39 @@ function PricingView({ onBack, user, userProfile, onSuccess }) {
   const [loading, setLoading] = useState(false);
 
   const handlePurchase = async (priceId, productType) => {
-    if (!user) {
-      alert('Please log in to purchase');
-      return;
-    }
+  if (!user) {
+    alert('Please log in to purchase');
+    return;
+  }
 
-    setLoading(true);
+  console.log('User object:', user);
+  console.log('User email:', user.email);
+
+  if (!user.email) {
+    alert('No email found for user. Please log out and log in again.');
+    return;
+  }
+
+  setLoading(true);
+  
+  try {
+    const requestData = {
+      priceId,
+      userId: user.id,
+      email: user.email,
+      productType,
+    };
     
-    try {
-      console.log('Starting checkout for:', { priceId, productType, userId: user.id });
-      
-      const response = await fetch('/.netlify/functions/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          priceId,
-          userId: user.id,
-          userEmail: user.email,
-          productType,
-        }),
-      });
+    console.log('Sending checkout request with data:', requestData);
+    
+    const response = await fetch('/.netlify/functions/create-checkout-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestData),
+    });
+    
 
       if (!response.ok) {
         const errorText = await response.text();
