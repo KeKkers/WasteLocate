@@ -1,6 +1,9 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const stripe = require('stripe');
 
-exports.handler = async (event, context) => {
+const handler = async (event, context) => {
+  // Initialize Stripe
+  const stripeClient = stripe(process.env.STRIPE_SECRET_KEY);
+  
   // Add CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -32,14 +35,18 @@ exports.handler = async (event, context) => {
 
     console.log('Creating checkout session for:', { priceId, userId, email, productType });
 
+    if (!email) {
+      throw new Error('Email is required');
+    }
+
     // Determine the correct URL
     const siteUrl = process.env.URL || 'https://polite-dolphin-64a8b4.netlify.app';
 
-    // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
+    // Create checkout session config
+    const sessionConfig = {
       payment_method_types: ['card'],
       mode: productType === 'payg' ? 'payment' : 'subscription',
-      customer_email: email,
+      customer_email: email, // Pre-fill email
       line_items: [
         {
           price: priceId,
@@ -51,17 +58,33 @@ exports.handler = async (event, context) => {
       metadata: {
         userId,
         productType,
+        userEmail: email, // Store in metadata too
       },
-    });
+      // Collect customer details
+      billing_address_collection: 'required',
+      // For subscriptions, we can also set up customer creation
+      ...(productType !== 'payg' && {
+        customer_creation: 'always',
+      }),
+    };
 
-    console.log('Checkout session created:', session.id, session.url);
+    // Create Stripe checkout session
+    const session = await stripeClient.checkout.sessions.create(sessionConfig);
+
+    console.log('Checkout session created:', {
+      id: session.id,
+      url: session.url,
+      customer_email: session.customer_email,
+      customer_details: session.customer_details
+    });
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         sessionId: session.id,
-        url: session.url 
+        url: session.url,
+        customer_email: email
       }),
     };
   } catch (error) {
@@ -76,3 +99,5 @@ exports.handler = async (event, context) => {
     };
   }
 };
+
+module.exports = { handler };
