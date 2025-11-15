@@ -1,4 +1,4 @@
-  import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, Search, MapPin, Phone, Mail, Globe, LogIn, LogOut, Settings, Plus, Edit2, Trash2, Home, AlertCircle, Shield, CreditCard } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { loadStripe } from '@stripe/stripe-js';
@@ -18,7 +18,7 @@ export default function EWCWasteManagementSystem() {
   
 // SEO Meta tags
   useEffect(() => {
-    document.title = 'EWC Waste Management System | Find Permitted Waste Facilities in UK';
+    document.title = 'WasteLocate | Find Permitted Waste Facilities in UK';
     
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
@@ -493,11 +493,20 @@ export default function EWCWasteManagementSystem() {
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold text-2xl">
+            <img 
+              src="/wastelocate-logo.png" 
+              alt="WasteLocate Logo" 
+              className="h-16 w-auto"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
+              }}
+            />
+            <div className="w-16 h-16 bg-green-600 rounded-lg items-center justify-center text-white font-bold text-2xl" style={{display: 'none'}}>
               WL
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">EWC Waste Management System</h1>
+              <h1 className="text-3xl font-bold text-gray-800">WasteLocate</h1>
               <p className="text-gray-600">Find permitted facilities for your waste</p>
             </div>
           </div>
