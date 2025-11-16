@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us - WasteLocate EWC Waste Management System</title>
+    <meta name="description" content="Learn about WasteLocate's mission to simplify waste management in the UK. Connecting waste producers with permitted facilities since 2025.">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #374151;
+            background: linear-gradient(135deg, #f0fdf4 0%, #dbeafe 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #059669 0%, #0284c7 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 24px;
+            color: #059669;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 800;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.95;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+
+        .back-link:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .content {
+            padding: 60px 40px;
+        }
+
+        .section {
+            margin-bottom: 60px;
+        }
+
+        h2 {
+            font-size: 2rem;
+            color: #1f2937;
+            margin-bottom: 20px;
+            font-weight: 700;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #059669;
+        }
+
+        h3 {
+            font-size: 1.5rem;
+            color: #059669;
+            margin: 30px 0 15px;
+            font-weight: 600;
+        }
+
+        p {
+            color: #4b5563;
+            line-height: 1.8;
+            margin-bottom: 15px;
+            font-size: 1.05rem;
+        }
+
+        .highlight-box {
+            background: #ecfdf5;
+            border-left: 4px solid #059669;
+            padding: 25px;
+            margin: 30px 0;
+            border-radius: 4px;
+        }
+
+        .highlight-box p {
+            margin: 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+        }
+
+        .stat-card {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            border: 2px solid #e5e7eb;
+        }
+
+        .stat-number {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #059669;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            font-size: 0.95rem;
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        .values-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin: 40px 0;
+        }
+
+        .value-card {
+            background: white;
+            border: 2px solid #059669;
+            border-radius: 12px;
+            padding: 25px;
+        }
+
+        .value-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+
+        .value-card h4 {
+            font-size: 1.2rem;
+            color: #1f2937;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .value-card p {
+            font-size: 0.95rem;
+            margin: 0;
+        }
+
+        .team-section {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 40px;
+            margin: 40px 0;
+        }
+
+        .cta-box {
+            background: linear-gradient(135deg, #059669 0%, #0284c7 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            margin-top: 60px;
+        }
+
+        .cta-box h2 {
+            color: white;
+            border: none;
+            margin-bottom: 15px;
+        }
+
+        .cta-box p {
+            color: white;
+            opacity: 0.95;
+            font-size: 1.1rem;
+            margin-bottom: 25px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 15px 35px;
+            background: white;
+            color: #059669;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        footer {
+            background: #f9fafb;
+            padding: 30px 40px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.9rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        footer a {
+            color: #059669;
+            margin: 0 10px;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            header {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .content {
+                padding: 40px 20px;
+            }
+
+            h2 {
+                font-size: 1.75rem;
+            }
+
+            .stats-grid, .values-grid {
+                grid-template-columns: 1fr;
+            }
+
+            footer {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">WL</div>
+            <h1>About WasteLocate</h1>
+            <p class="subtitle">Simplifying waste management across the UK</p>
+            <a href="/" class="back-link">
+                ← Back to Home
+            </a>
+        </header>
+
+        <div class="content">
+            <!-- Mission Section -->
+            <div class="section">
+                <h2>Our Mission</h2>
+                <p>
+                    WasteLocate was founded with a clear mission: to simplify and streamline waste management 
+                    processes across the United Kingdom. We believe that finding the right waste disposal facility 
+                    shouldn't be complicated, time-consuming, or frustrating.
+                </p>
+                <p>
+                    By connecting waste producers, hauliers, and disposal facilities through our innovative platform, 
+                    we're making environmental compliance easier and more accessible for everyone in the waste 
+                    management industry.
+                </p>
+                
+                <div class="highlight-box">
+                    <p style="font-size: 1.15rem; font-weight: 500;">
+                        "We're building the UK's most comprehensive and user-friendly waste facility directory, 
+                        helping businesses meet their environmental obligations while reducing costs and improving efficiency."
+                    </p>
+                </div>
+            </div>
+
+            <!-- The Problem Section -->
+            <div class="section">
+                <h2>The Problem We're Solving</h2>
+                <p>
+                    For years, waste producers have struggled with finding suitable disposal facilities. The process 
+                    typically involves:
+                </p>
+                <ul style="margin-left: 30px; color: #4b5563; line-height: 1.8;">
+                    <li>Hours of phone calls to multiple facilities</li>
+                    <li>Manual searching through fragmented online directories</li>
+                    <li>Uncertainty about facility permits and waste acceptance</li>
+                    <li>No transparent pricing information</li>
+                    <li>Difficulty finding facilities by location</li>
+                    <li>Complex EWC code classification without guidance</li>
+                </ul>
+                <p>
+                    This inefficiency costs businesses time and money, while potentially leading to non-compliance 
+                    with UK environmental regulations.
+                </p>
+            </div>
+
+            <!-- Our Solution Section -->
+            <div class="section">
+                <h2>Our Solution</h2>
+                <p>
+                    WasteLocate brings everything together in one easy-to-use platform:
+                </p>
+                
+                <h3>🔍 Comprehensive EWC Database</h3>
+                <p>
+                    Our intuitive three-tier search system guides users through the European Waste Catalogue, 
+                    making waste classification straightforward even for those new to waste management.
+                </p>
+
+                <h3>🏭 Verified Facility Directory</h3>
+                <p>
+                    We maintain an up-to-date database of permitted waste facilities across the UK, including 
+                    detailed information on permits, capacities, accepted waste codes, and pricing.
+                </p>
+
+                <h3>📍 Location-Based Matching</h3>
+                <p>
+                    Our postcode-based distance calculation helps users find the nearest suitable facilities, 
+                    reducing transport costs and environmental impact.
+                </p>
+
+                <h3>💰 Transparent Information</h3>
+                <p>
+                    We display upfront pricing, capacity limits, and contact details, empowering users to make 
+                    informed decisions without the traditional back-and-forth.
+                </p>
+            </div>
+
+            <!-- Stats Section -->
+            <div class="section">
+                <h2>Our Impact</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">1000+</div>
+                        <div class="stat-label">Facilities Listed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">500+</div>
+                        <div class="stat-label">EWC Codes Covered</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">24/7</div>
+                        <div class="stat-label">Platform Availability</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">UK-Wide</div>
+                        <div class="stat-label">Coverage</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Values Section -->
+            <div class="section">
+                <h2>Our Values</h2>
+                <div class="values-grid">
+                    <div class="value-card">
+                        <div class="value-icon">🎯</div>
+                        <h4>Simplicity First</h4>
+                        <p>
+                            We believe waste management shouldn't be complicated. Our platform is designed to be 
+                            intuitive and accessible to everyone, regardless of technical expertise.
+                        </p>
+                    </div>
+
+                    <div class="value-card">
+                        <div class="value-icon">🔒</div>
+                        <h4>Compliance & Trust</h4>
+                        <p>
+                            We're committed to helping users meet their legal obligations. All facilities in our 
+                            database are verified and properly permitted by the Environment Agency.
+                        </p>
+                    </div>
+
+                    <div class="value-card">
+                        <div class="value-icon">💚</div>
+                        <h4>Environmental Responsibility</h4>
+                        <p>
+                            By facilitating efficient waste disposal routes, we help reduce unnecessary transport 
+                            and promote sustainable waste management practices.
+                        </p>
+                    </div>
+
+                    <div class="value-card">
+                        <div class="value-icon">🤝</div>
+                        <h4>Transparency & Honesty</h4>
+                        <p>
+                            We provide accurate, up-to-date information without hidden fees or surprises. What you 
+                            see is what you get.
+                        </p>
+                    </div>
+
+                    <div class="value-card">
+                        <div class="value-icon">⚡</div>
+                        <h4>Innovation</h4>
+                        <p>
+                            We continuously improve our platform based on user feedback, industry changes, and 
+                            technological advances.
+                        </p>
+                    </div>
+
+                    <div class="value-card">
+                        <div class="value-icon">🎓</div>
+                        <h4>Education</h4>
+                        <p>
+                            We empower users with knowledge about waste classification, regulations, and best 
+                            practices through our resources and guidance.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Who We Serve Section -->
+            <div class="section">
+                <h2>Who We Serve</h2>
+                
+                <h3>Waste Producers</h3>
+                <p>
+                    From small businesses to large industrial operations, we help waste producers find compliant 
+                    disposal routes quickly and efficiently. Whether you're dealing with construction waste, 
+                    chemical by-products, or general commercial waste, WasteLocate connects you with the right facilities.
+                </p>
+
+                <h3>Waste Hauliers & Transport Companies</h3>
+                <p>
+                    For hauliers, time is money. Our platform helps you locate facilities near collection points, 
+                    optimize routes, and find alternative disposal sites when needed. Reduce empty running and 
+                    fuel costs while ensuring compliance.
+                </p>
+
+                <h3>Waste Disposal Facilities</h3>
+                <p>
+                    If you operate a permitted waste facility, WasteLocate provides a powerful marketing channel 
+                    to reach new customers. Showcase your capabilities, display your pricing, and connect with 
+                    waste producers actively searching for your services.
+                </p>
+            </div>
+
+            <!-- Commitment Section -->
+            <div class="section">
+                <h2>Our Commitment to You</h2>
+                
+                <div class="team-section">
+                    <h3 style="color: #1f2937; text-align: center; margin-bottom: 25px;">We Promise To:</h3>
+                    <ul style="margin-left: 30px; color: #4b5563; line-height: 2;">
+                        <li><strong>Keep Information Current:</strong> We regularly update our facility database to ensure accuracy</li>
+                        <li><strong>Provide Excellent Support:</strong> Our team is here to help with any questions or issues</li>
+                        <li><strong>Listen to Feedback:</strong> We actively incorporate user suggestions to improve our platform</li>
+                        <li><strong>Maintain Transparency:</strong> We clearly state what our service does and doesn't cover</li>
+                        <li><strong>Support Compliance:</strong> We help you meet your environmental obligations</li>
+                    </ul>
+                </div>
+
+                <p>
+                    <strong>Important:</strong> While we provide comprehensive information and connections, WasteLocate 
+                    is an information service only. We do not provide waste classification services or legal advice. 
+                    Users are responsible for ensuring compliance with all applicable regulations and verifying facility 
+                    capabilities independently.
+                </p>
+            </div>
+
+            <!-- Regulatory Note -->
+            <div class="section">
+                <h2>Regulatory Compliance</h2>
+                <p>
+                    WasteLocate operates in accordance with UK environmental legislation. We encourage all users to:
+                </p>
+                <ul style="margin-left: 30px; color: #4b5563; line-height: 1.8; margin-bottom: 20px;">
+                    <li>Consult the official <a href="https://assets.publishing.service.gov.uk/media/6152d0b78fa8f5610b9c222b/Waste_classification_technical_guidance_WM3.pdf" target="_blank" rel="noopener" style="color: #059669; text-decoration: none; font-weight: 600;">WM3: Waste Classification Technical Guidance</a></li>
+                    <li>Follow the <a href="https://www.gov.uk/government/publications/waste-duty-of-care-code-of-practice" target="_blank" rel="noopener" style="color: #059669; text-decoration: none; font-weight: 600;">Duty of Care Code of Practice</a></li>
+                    <li>Comply with <a href="https://www.legislation.gov.uk/uksi/2011/988/contents" target="_blank" rel="noopener" style="color: #059669; text-decoration: none; font-weight: 600;">The Waste Regulations 2011</a></li>
+                    <li>Verify facility permits with the <a href="https://www.gov.uk/government/organisations/environment-agency" target="_blank" rel="noopener" style="color: #059669; text-decoration: none; font-weight: 600;">Environment Agency</a></li>
+                </ul>
+            </div>
+
+            <!-- Contact Section -->
+            <div class="section">
+                <h2>Get In Touch</h2>
+                <p>
+                    We'd love to hear from you! Whether you have questions, feedback, or suggestions, our team 
+                    is here to help.
+                </p>
+                
+                <div class="highlight-box">
+                    <p><strong>📧 Email:</strong> <a href="mailto:info@wastelocate.co.uk" style="color: #059669; text-decoration: none;">info@wastelocate.co.uk</a></p>
+                    <p><strong>⏰ Business Hours:</strong> Monday-Friday, 9am-5pm GMT</p>
+                </div>
+            </div>
+
+            <!-- CTA Section -->
+            <div class="cta-box">
+                <h2>Ready to Simplify Your Waste Management?</h2>
+                <p>Join hundreds of businesses using WasteLocate to find permitted waste facilities faster</p>
+                <a href="/" class="btn">Start Searching Now</a>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2025 WasteLocate Ltd. All rights reserved.</p>
+            <p>
+                <a href="/">Home</a> |
+                <a href="/how-it-works.html">How It Works</a> |
+                <a href="/about.html">About Us</a> |
+                <a href="/faq.html">FAQ</a> |
+                <a href="/terms.html">Terms</a> |
+                <a href="/privacy.html">Privacy</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

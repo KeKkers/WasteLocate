@@ -35,12 +35,6 @@ var require_CryptoProvider = __commonJS({
       computeHMACSignatureAsync(payload, secret) {
         throw new Error("computeHMACSignatureAsync not implemented.");
       }
-      /**
-       * Computes a SHA-256 hash of the data.
-       */
-      computeSHA256Async(data) {
-        throw new Error("computeSHA256 not implemented.");
-      }
     };
     exports2.CryptoProvider = CryptoProvider;
     var CryptoProviderOnlySupportsAsyncError = class extends Error {
@@ -66,10 +60,6 @@ var require_NodeCryptoProvider = __commonJS({
       async computeHMACSignatureAsync(payload, secret) {
         const signature = await this.computeHMACSignature(payload, secret);
         return signature;
-      }
-      /** @override */
-      async computeSHA256Async(data) {
-        return new Uint8Array(await crypto2.createHash("sha256").update(data).digest());
       }
     };
     exports2.NodeCryptoProvider = NodeCryptoProvider;
@@ -218,6 +208,380 @@ var require_NodeHttpClient = __commonJS({
       }
     };
     exports2.NodeHttpClientResponse = NodeHttpClientResponse;
+  }
+});
+
+// node_modules/stripe/cjs/net/FetchHttpClient.js
+var require_FetchHttpClient = __commonJS({
+  "node_modules/stripe/cjs/net/FetchHttpClient.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.FetchHttpClientResponse = exports2.FetchHttpClient = void 0;
+    var HttpClient_js_1 = require_HttpClient();
+    var FetchHttpClient = class _FetchHttpClient extends HttpClient_js_1.HttpClient {
+      constructor(fetchFn) {
+        super();
+        if (!fetchFn) {
+          if (!globalThis.fetch) {
+            throw new Error("fetch() function not provided and is not defined in the global scope. You must provide a fetch implementation.");
+          }
+          fetchFn = globalThis.fetch;
+        }
+        if (globalThis.AbortController) {
+          this._fetchFn = _FetchHttpClient.makeFetchWithAbortTimeout(fetchFn);
+        } else {
+          this._fetchFn = _FetchHttpClient.makeFetchWithRaceTimeout(fetchFn);
+        }
+      }
+      static makeFetchWithRaceTimeout(fetchFn) {
+        return (url, init, timeout) => {
+          let pendingTimeoutId;
+          const timeoutPromise = new Promise((_, reject) => {
+            pendingTimeoutId = setTimeout(() => {
+              pendingTimeoutId = null;
+              reject(HttpClient_js_1.HttpClient.makeTimeoutError());
+            }, timeout);
+          });
+          const fetchPromise = fetchFn(url, init);
+          return Promise.race([fetchPromise, timeoutPromise]).finally(() => {
+            if (pendingTimeoutId) {
+              clearTimeout(pendingTimeoutId);
+            }
+          });
+        };
+      }
+      static makeFetchWithAbortTimeout(fetchFn) {
+        return async (url, init, timeout) => {
+          const abort = new AbortController();
+          let timeoutId = setTimeout(() => {
+            timeoutId = null;
+            abort.abort(HttpClient_js_1.HttpClient.makeTimeoutError());
+          }, timeout);
+          try {
+            return await fetchFn(url, Object.assign(Object.assign({}, init), { signal: abort.signal }));
+          } catch (err) {
+            if (err.name === "AbortError") {
+              throw HttpClient_js_1.HttpClient.makeTimeoutError();
+            } else {
+              throw err;
+            }
+          } finally {
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+            }
+          }
+        };
+      }
+      /** @override. */
+      getClientName() {
+        return "fetch";
+      }
+      async makeRequest(host, port, path, method, headers, requestData, protocol, timeout) {
+        const isInsecureConnection = protocol === "http";
+        const url = new URL(path, `${isInsecureConnection ? "http" : "https"}://${host}`);
+        url.port = port;
+        const methodHasPayload = method == "POST" || method == "PUT" || method == "PATCH";
+        const body = requestData || (methodHasPayload ? "" : void 0);
+        const res = await this._fetchFn(url.toString(), {
+          method,
+          // @ts-ignore
+          headers,
+          // @ts-ignore
+          body
+        }, timeout);
+        return new FetchHttpClientResponse(res);
+      }
+    };
+    exports2.FetchHttpClient = FetchHttpClient;
+    var FetchHttpClientResponse = class _FetchHttpClientResponse extends HttpClient_js_1.HttpClientResponse {
+      constructor(res) {
+        super(res.status, _FetchHttpClientResponse._transformHeadersToObject(res.headers));
+        this._res = res;
+      }
+      getRawResponse() {
+        return this._res;
+      }
+      toStream(streamCompleteCallback) {
+        streamCompleteCallback();
+        return this._res.body;
+      }
+      toJSON() {
+        return this._res.json();
+      }
+      static _transformHeadersToObject(headers) {
+        const headersObj = {};
+        for (const entry of headers) {
+          if (!Array.isArray(entry) || entry.length != 2) {
+            throw new Error("Response objects produced by the fetch function given to FetchHttpClient do not have an iterable headers map. Response#headers should be an iterable object.");
+          }
+          headersObj[entry[0]] = entry[1];
+        }
+        return headersObj;
+      }
+    };
+    exports2.FetchHttpClientResponse = FetchHttpClientResponse;
+  }
+});
+
+// node_modules/stripe/cjs/crypto/SubtleCryptoProvider.js
+var require_SubtleCryptoProvider = __commonJS({
+  "node_modules/stripe/cjs/crypto/SubtleCryptoProvider.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.SubtleCryptoProvider = void 0;
+    var CryptoProvider_js_1 = require_CryptoProvider();
+    var SubtleCryptoProvider = class extends CryptoProvider_js_1.CryptoProvider {
+      constructor(subtleCrypto) {
+        super();
+        this.subtleCrypto = subtleCrypto || crypto.subtle;
+      }
+      /** @override */
+      computeHMACSignature(payload, secret) {
+        throw new CryptoProvider_js_1.CryptoProviderOnlySupportsAsyncError("SubtleCryptoProvider cannot be used in a synchronous context.");
+      }
+      /** @override */
+      async computeHMACSignatureAsync(payload, secret) {
+        const encoder = new TextEncoder();
+        const key = await this.subtleCrypto.importKey("raw", encoder.encode(secret), {
+          name: "HMAC",
+          hash: { name: "SHA-256" }
+        }, false, ["sign"]);
+        const signatureBuffer = await this.subtleCrypto.sign("hmac", key, encoder.encode(payload));
+        const signatureBytes = new Uint8Array(signatureBuffer);
+        const signatureHexCodes = new Array(signatureBytes.length);
+        for (let i = 0; i < signatureBytes.length; i++) {
+          signatureHexCodes[i] = byteHexMapping[signatureBytes[i]];
+        }
+        return signatureHexCodes.join("");
+      }
+    };
+    exports2.SubtleCryptoProvider = SubtleCryptoProvider;
+    var byteHexMapping = new Array(256);
+    for (let i = 0; i < byteHexMapping.length; i++) {
+      byteHexMapping[i] = i.toString(16).padStart(2, "0");
+    }
+  }
+});
+
+// node_modules/stripe/cjs/platform/PlatformFunctions.js
+var require_PlatformFunctions = __commonJS({
+  "node_modules/stripe/cjs/platform/PlatformFunctions.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.PlatformFunctions = void 0;
+    var FetchHttpClient_js_1 = require_FetchHttpClient();
+    var SubtleCryptoProvider_js_1 = require_SubtleCryptoProvider();
+    var PlatformFunctions = class {
+      constructor() {
+        this._fetchFn = null;
+        this._agent = null;
+      }
+      /**
+       * Gets uname with Node's built-in `exec` function, if available.
+       */
+      getUname() {
+        throw new Error("getUname not implemented.");
+      }
+      /**
+       * Generates a v4 UUID. See https://stackoverflow.com/a/2117523
+       */
+      uuid4() {
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+          const r = Math.random() * 16 | 0;
+          const v = c === "x" ? r : r & 3 | 8;
+          return v.toString(16);
+        });
+      }
+      /**
+       * Compares strings in constant time.
+       */
+      secureCompare(a, b) {
+        if (a.length !== b.length) {
+          return false;
+        }
+        const len = a.length;
+        let result = 0;
+        for (let i = 0; i < len; ++i) {
+          result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+        }
+        return result === 0;
+      }
+      /**
+       * Creates an event emitter.
+       */
+      createEmitter() {
+        throw new Error("createEmitter not implemented.");
+      }
+      /**
+       * Checks if the request data is a stream. If so, read the entire stream
+       * to a buffer and return the buffer.
+       */
+      tryBufferData(data) {
+        throw new Error("tryBufferData not implemented.");
+      }
+      /**
+       * Creates an HTTP client which uses the Node `http` and `https` packages
+       * to issue requests.
+       */
+      createNodeHttpClient(agent) {
+        throw new Error("createNodeHttpClient not implemented.");
+      }
+      /**
+       * Creates an HTTP client for issuing Stripe API requests which uses the Web
+       * Fetch API.
+       *
+       * A fetch function can optionally be passed in as a parameter. If none is
+       * passed, will default to the default `fetch` function in the global scope.
+       */
+      createFetchHttpClient(fetchFn) {
+        return new FetchHttpClient_js_1.FetchHttpClient(fetchFn);
+      }
+      /**
+       * Creates an HTTP client using runtime-specific APIs.
+       */
+      createDefaultHttpClient() {
+        throw new Error("createDefaultHttpClient not implemented.");
+      }
+      /**
+       * Creates a CryptoProvider which uses the Node `crypto` package for its computations.
+       */
+      createNodeCryptoProvider() {
+        throw new Error("createNodeCryptoProvider not implemented.");
+      }
+      /**
+       * Creates a CryptoProvider which uses the SubtleCrypto interface of the Web Crypto API.
+       */
+      createSubtleCryptoProvider(subtleCrypto) {
+        return new SubtleCryptoProvider_js_1.SubtleCryptoProvider(subtleCrypto);
+      }
+      createDefaultCryptoProvider() {
+        throw new Error("createDefaultCryptoProvider not implemented.");
+      }
+    };
+    exports2.PlatformFunctions = PlatformFunctions;
+  }
+});
+
+// node_modules/stripe/cjs/Error.js
+var require_Error = __commonJS({
+  "node_modules/stripe/cjs/Error.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.StripeUnknownError = exports2.StripeInvalidGrantError = exports2.StripeIdempotencyError = exports2.StripeSignatureVerificationError = exports2.StripeConnectionError = exports2.StripeRateLimitError = exports2.StripePermissionError = exports2.StripeAuthenticationError = exports2.StripeAPIError = exports2.StripeInvalidRequestError = exports2.StripeCardError = exports2.StripeError = exports2.generate = void 0;
+    var generate = (rawStripeError) => {
+      switch (rawStripeError.type) {
+        case "card_error":
+          return new StripeCardError(rawStripeError);
+        case "invalid_request_error":
+          return new StripeInvalidRequestError(rawStripeError);
+        case "api_error":
+          return new StripeAPIError(rawStripeError);
+        case "authentication_error":
+          return new StripeAuthenticationError(rawStripeError);
+        case "rate_limit_error":
+          return new StripeRateLimitError(rawStripeError);
+        case "idempotency_error":
+          return new StripeIdempotencyError(rawStripeError);
+        case "invalid_grant":
+          return new StripeInvalidGrantError(rawStripeError);
+        default:
+          return new StripeUnknownError(rawStripeError);
+      }
+    };
+    exports2.generate = generate;
+    var StripeError = class extends Error {
+      constructor(raw = {}, type = null) {
+        super(raw.message);
+        this.type = type || this.constructor.name;
+        this.raw = raw;
+        this.rawType = raw.type;
+        this.code = raw.code;
+        this.doc_url = raw.doc_url;
+        this.param = raw.param;
+        this.detail = raw.detail;
+        this.headers = raw.headers;
+        this.requestId = raw.requestId;
+        this.statusCode = raw.statusCode;
+        this.message = raw.message;
+        this.charge = raw.charge;
+        this.decline_code = raw.decline_code;
+        this.payment_intent = raw.payment_intent;
+        this.payment_method = raw.payment_method;
+        this.payment_method_type = raw.payment_method_type;
+        this.setup_intent = raw.setup_intent;
+        this.source = raw.source;
+      }
+    };
+    exports2.StripeError = StripeError;
+    StripeError.generate = exports2.generate;
+    var StripeCardError = class extends StripeError {
+      constructor(raw = {}) {
+        super(raw, "StripeCardError");
+      }
+    };
+    exports2.StripeCardError = StripeCardError;
+    var StripeInvalidRequestError = class extends StripeError {
+      constructor(raw = {}) {
+        super(raw, "StripeInvalidRequestError");
+      }
+    };
+    exports2.StripeInvalidRequestError = StripeInvalidRequestError;
+    var StripeAPIError = class extends StripeError {
+      constructor(raw = {}) {
+        super(raw, "StripeAPIError");
+      }
+    };
+    exports2.StripeAPIError = StripeAPIError;
+    var StripeAuthenticationError = class extends StripeError {
+      constructor(raw = {}) {
+        super(raw, "StripeAuthenticationError");
+      }
+    };
+    exports2.StripeAuthenticationError = StripeAuthenticationError;
+    var StripePermissionError = class extends StripeError {
+      constructor(raw = {}) {
+        super(raw, "StripePermissionError");
+      }
+    };
+    exports2.StripePermissionError = StripePermissionError;
+    var StripeRateLimitError = class extends StripeError {
+      constructor(raw = {}) {
+        super(raw, "StripeRateLimitError");
+      }
+    };
+    exports2.StripeRateLimitError = StripeRateLimitError;
+    var StripeConnectionError = class extends StripeError {
+      constructor(raw = {}) {
+        super(raw, "StripeConnectionError");
+      }
+    };
+    exports2.StripeConnectionError = StripeConnectionError;
+    var StripeSignatureVerificationError = class extends StripeError {
+      constructor(header, payload, raw = {}) {
+        super(raw, "StripeSignatureVerificationError");
+        this.header = header;
+        this.payload = payload;
+      }
+    };
+    exports2.StripeSignatureVerificationError = StripeSignatureVerificationError;
+    var StripeIdempotencyError = class extends StripeError {
+      constructor(raw = {}) {
+        super(raw, "StripeIdempotencyError");
+      }
+    };
+    exports2.StripeIdempotencyError = StripeIdempotencyError;
+    var StripeInvalidGrantError = class extends StripeError {
+      constructor(raw = {}) {
+        super(raw, "StripeInvalidGrantError");
+      }
+    };
+    exports2.StripeInvalidGrantError = StripeInvalidGrantError;
+    var StripeUnknownError = class extends StripeError {
+      constructor(raw = {}) {
+        super(raw, "StripeUnknownError");
+      }
+    };
+    exports2.StripeUnknownError = StripeUnknownError;
   }
 });
 
@@ -2632,7 +2996,7 @@ var require_utils2 = __commonJS({
   "node_modules/stripe/cjs/utils.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.parseHeadersForFetch = exports2.parseHttpHeaderAsNumber = exports2.parseHttpHeaderAsString = exports2.getAPIMode = exports2.jsonStringifyRequestData = exports2.concat = exports2.createApiKeyAuthenticator = exports2.determineProcessUserAgentProperties = exports2.validateInteger = exports2.flattenAndStringify = exports2.isObject = exports2.emitWarning = exports2.pascalToCamelCase = exports2.callbackifyPromiseWithTimeout = exports2.normalizeHeader = exports2.normalizeHeaders = exports2.removeNullish = exports2.protoExtend = exports2.getOptionsFromArgs = exports2.getDataFromArgs = exports2.extractUrlParams = exports2.makeURLInterpolator = exports2.queryStringifyRequestData = exports2.isOptionsHash = void 0;
+    exports2.concat = exports2.determineProcessUserAgentProperties = exports2.validateInteger = exports2.flattenAndStringify = exports2.isObject = exports2.emitWarning = exports2.pascalToCamelCase = exports2.callbackifyPromiseWithTimeout = exports2.normalizeHeader = exports2.normalizeHeaders = exports2.removeNullish = exports2.protoExtend = exports2.getOptionsFromArgs = exports2.getDataFromArgs = exports2.extractUrlParams = exports2.makeURLInterpolator = exports2.stringifyRequestData = exports2.isOptionsHash = void 0;
     var qs = require_lib();
     var OPTIONS_KEYS = [
       "apiKey",
@@ -2641,23 +3005,18 @@ var require_utils2 = __commonJS({
       "apiVersion",
       "maxNetworkRetries",
       "timeout",
-      "host",
-      "authenticator",
-      "stripeContext",
-      "additionalHeaders",
-      "streaming"
+      "host"
     ];
     function isOptionsHash(o) {
       return o && typeof o === "object" && OPTIONS_KEYS.some((prop) => Object.prototype.hasOwnProperty.call(o, prop));
     }
     exports2.isOptionsHash = isOptionsHash;
-    function queryStringifyRequestData(data, apiMode) {
+    function stringifyRequestData(data) {
       return qs.stringify(data, {
-        serializeDate: (d) => Math.floor(d.getTime() / 1e3).toString(),
-        arrayFormat: apiMode == "v2" ? "repeat" : "indices"
+        serializeDate: (d) => Math.floor(d.getTime() / 1e3).toString()
       }).replace(/%5B/g, "[").replace(/%5D/g, "]");
     }
-    exports2.queryStringifyRequestData = queryStringifyRequestData;
+    exports2.stringifyRequestData = stringifyRequestData;
     exports2.makeURLInterpolator = /* @__PURE__ */ (() => {
       const rc = {
         "\n": "\\n",
@@ -2668,18 +3027,13 @@ var require_utils2 = __commonJS({
       return (str) => {
         const cleanString = str.replace(/["\n\r\u2028\u2029]/g, ($0) => rc[$0]);
         return (outputs) => {
-          return cleanString.replace(/\{([\s\S]+?)\}/g, ($0, $1) => {
-            const output = outputs[$1];
-            if (isValidEncodeUriComponentType(output))
-              return encodeURIComponent(output);
-            return "";
-          });
+          return cleanString.replace(/\{([\s\S]+?)\}/g, ($0, $1) => (
+            // @ts-ignore
+            encodeURIComponent(outputs[$1] || "")
+          ));
         };
       };
     })();
-    function isValidEncodeUriComponentType(value) {
-      return ["number", "string", "boolean"].includes(typeof value);
-    }
     function extractUrlParams(path) {
       const params = path.match(/\{\w+\}/g);
       if (!params) {
@@ -2705,15 +3059,15 @@ var require_utils2 = __commonJS({
     exports2.getDataFromArgs = getDataFromArgs;
     function getOptionsFromArgs(args) {
       const opts = {
+        auth: null,
         host: null,
         headers: {},
-        settings: {},
-        streaming: false
+        settings: {}
       };
       if (args.length > 0) {
         const arg = args[args.length - 1];
         if (typeof arg === "string") {
-          opts.authenticator = createApiKeyAuthenticator(args.pop());
+          opts.auth = args.pop();
         } else if (isOptionsHash(arg)) {
           const params = Object.assign({}, args.pop());
           const extraKeys = Object.keys(params).filter((key) => !OPTIONS_KEYS.includes(key));
@@ -2721,19 +3075,13 @@ var require_utils2 = __commonJS({
             emitWarning(`Invalid options found (${extraKeys.join(", ")}); ignoring.`);
           }
           if (params.apiKey) {
-            opts.authenticator = createApiKeyAuthenticator(params.apiKey);
+            opts.auth = params.apiKey;
           }
           if (params.idempotencyKey) {
             opts.headers["Idempotency-Key"] = params.idempotencyKey;
           }
           if (params.stripeAccount) {
             opts.headers["Stripe-Account"] = params.stripeAccount;
-          }
-          if (params.stripeContext) {
-            if (opts.headers["Stripe-Account"]) {
-              throw new Error("Can't specify both stripeAccount and stripeContext.");
-            }
-            opts.headers["Stripe-Context"] = params.stripeContext;
           }
           if (params.apiVersion) {
             opts.headers["Stripe-Version"] = params.apiVersion;
@@ -2746,21 +3094,6 @@ var require_utils2 = __commonJS({
           }
           if (params.host) {
             opts.host = params.host;
-          }
-          if (params.authenticator) {
-            if (params.apiKey) {
-              throw new Error("Can't specify both apiKey and authenticator.");
-            }
-            if (typeof params.authenticator !== "function") {
-              throw new Error("The authenticator must be a function receiving a request as the first parameter.");
-            }
-            opts.authenticator = params.authenticator;
-          }
-          if (params.additionalHeaders) {
-            opts.headers = params.additionalHeaders;
-          }
-          if (params.streaming) {
-            opts.streaming = true;
           }
         }
       }
@@ -2842,7 +3175,8 @@ var require_utils2 = __commonJS({
     function flattenAndStringify(data) {
       const result = {};
       const step = (obj, prevKey) => {
-        Object.entries(obj).forEach(([key, value]) => {
+        Object.keys(obj).forEach((key) => {
+          const value = obj[key];
           const newKey = prevKey ? `${prevKey}[${key}]` : key;
           if (isObject(value)) {
             if (!(value instanceof Uint8Array) && !Object.prototype.hasOwnProperty.call(value, "data")) {
@@ -2877,15 +3211,6 @@ var require_utils2 = __commonJS({
       };
     }
     exports2.determineProcessUserAgentProperties = determineProcessUserAgentProperties;
-    function createApiKeyAuthenticator(apiKey) {
-      const authenticator = (request) => {
-        request.headers.Authorization = "Bearer " + apiKey;
-        return Promise.resolve();
-      };
-      authenticator._apiKey = apiKey;
-      return authenticator;
-    }
-    exports2.createApiKeyAuthenticator = createApiKeyAuthenticator;
     function concat(arrays) {
       const totalLength = arrays.reduce((len, array) => len + array.length, 0);
       const merged = new Uint8Array(totalLength);
@@ -2897,439 +3222,6 @@ var require_utils2 = __commonJS({
       return merged;
     }
     exports2.concat = concat;
-    function dateTimeReplacer(key, value) {
-      if (this[key] instanceof Date) {
-        return Math.floor(this[key].getTime() / 1e3).toString();
-      }
-      return value;
-    }
-    function jsonStringifyRequestData(data) {
-      return JSON.stringify(data, dateTimeReplacer);
-    }
-    exports2.jsonStringifyRequestData = jsonStringifyRequestData;
-    function getAPIMode(path) {
-      if (!path) {
-        return "v1";
-      }
-      return path.startsWith("/v2") ? "v2" : "v1";
-    }
-    exports2.getAPIMode = getAPIMode;
-    function parseHttpHeaderAsString(header) {
-      if (Array.isArray(header)) {
-        return header.join(", ");
-      }
-      return String(header);
-    }
-    exports2.parseHttpHeaderAsString = parseHttpHeaderAsString;
-    function parseHttpHeaderAsNumber(header) {
-      const number = Array.isArray(header) ? header[0] : header;
-      return Number(number);
-    }
-    exports2.parseHttpHeaderAsNumber = parseHttpHeaderAsNumber;
-    function parseHeadersForFetch(headers) {
-      return Object.entries(headers).map(([key, value]) => {
-        return [key, parseHttpHeaderAsString(value)];
-      });
-    }
-    exports2.parseHeadersForFetch = parseHeadersForFetch;
-  }
-});
-
-// node_modules/stripe/cjs/net/FetchHttpClient.js
-var require_FetchHttpClient = __commonJS({
-  "node_modules/stripe/cjs/net/FetchHttpClient.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.FetchHttpClientResponse = exports2.FetchHttpClient = void 0;
-    var utils_js_1 = require_utils2();
-    var HttpClient_js_1 = require_HttpClient();
-    var FetchHttpClient = class _FetchHttpClient extends HttpClient_js_1.HttpClient {
-      constructor(fetchFn) {
-        super();
-        if (!fetchFn) {
-          if (!globalThis.fetch) {
-            throw new Error("fetch() function not provided and is not defined in the global scope. You must provide a fetch implementation.");
-          }
-          fetchFn = globalThis.fetch;
-        }
-        if (globalThis.AbortController) {
-          this._fetchFn = _FetchHttpClient.makeFetchWithAbortTimeout(fetchFn);
-        } else {
-          this._fetchFn = _FetchHttpClient.makeFetchWithRaceTimeout(fetchFn);
-        }
-      }
-      static makeFetchWithRaceTimeout(fetchFn) {
-        return (url, init, timeout) => {
-          let pendingTimeoutId;
-          const timeoutPromise = new Promise((_, reject) => {
-            pendingTimeoutId = setTimeout(() => {
-              pendingTimeoutId = null;
-              reject(HttpClient_js_1.HttpClient.makeTimeoutError());
-            }, timeout);
-          });
-          const fetchPromise = fetchFn(url, init);
-          return Promise.race([fetchPromise, timeoutPromise]).finally(() => {
-            if (pendingTimeoutId) {
-              clearTimeout(pendingTimeoutId);
-            }
-          });
-        };
-      }
-      static makeFetchWithAbortTimeout(fetchFn) {
-        return async (url, init, timeout) => {
-          const abort = new AbortController();
-          let timeoutId = setTimeout(() => {
-            timeoutId = null;
-            abort.abort(HttpClient_js_1.HttpClient.makeTimeoutError());
-          }, timeout);
-          try {
-            return await fetchFn(url, Object.assign(Object.assign({}, init), { signal: abort.signal }));
-          } catch (err) {
-            if (err.name === "AbortError") {
-              throw HttpClient_js_1.HttpClient.makeTimeoutError();
-            } else {
-              throw err;
-            }
-          } finally {
-            if (timeoutId) {
-              clearTimeout(timeoutId);
-            }
-          }
-        };
-      }
-      /** @override. */
-      getClientName() {
-        return "fetch";
-      }
-      async makeRequest(host, port, path, method, headers, requestData, protocol, timeout) {
-        const isInsecureConnection = protocol === "http";
-        const url = new URL(path, `${isInsecureConnection ? "http" : "https"}://${host}`);
-        url.port = port;
-        const methodHasPayload = method == "POST" || method == "PUT" || method == "PATCH";
-        const body = requestData || (methodHasPayload ? "" : void 0);
-        const res = await this._fetchFn(url.toString(), {
-          method,
-          headers: (0, utils_js_1.parseHeadersForFetch)(headers),
-          body
-        }, timeout);
-        return new FetchHttpClientResponse(res);
-      }
-    };
-    exports2.FetchHttpClient = FetchHttpClient;
-    var FetchHttpClientResponse = class _FetchHttpClientResponse extends HttpClient_js_1.HttpClientResponse {
-      constructor(res) {
-        super(res.status, _FetchHttpClientResponse._transformHeadersToObject(res.headers));
-        this._res = res;
-      }
-      getRawResponse() {
-        return this._res;
-      }
-      toStream(streamCompleteCallback) {
-        streamCompleteCallback();
-        return this._res.body;
-      }
-      toJSON() {
-        return this._res.json();
-      }
-      static _transformHeadersToObject(headers) {
-        const headersObj = {};
-        for (const entry of headers) {
-          if (!Array.isArray(entry) || entry.length != 2) {
-            throw new Error("Response objects produced by the fetch function given to FetchHttpClient do not have an iterable headers map. Response#headers should be an iterable object.");
-          }
-          headersObj[entry[0]] = entry[1];
-        }
-        return headersObj;
-      }
-    };
-    exports2.FetchHttpClientResponse = FetchHttpClientResponse;
-  }
-});
-
-// node_modules/stripe/cjs/crypto/SubtleCryptoProvider.js
-var require_SubtleCryptoProvider = __commonJS({
-  "node_modules/stripe/cjs/crypto/SubtleCryptoProvider.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.SubtleCryptoProvider = void 0;
-    var CryptoProvider_js_1 = require_CryptoProvider();
-    var SubtleCryptoProvider = class extends CryptoProvider_js_1.CryptoProvider {
-      constructor(subtleCrypto) {
-        super();
-        this.subtleCrypto = subtleCrypto || crypto.subtle;
-      }
-      /** @override */
-      computeHMACSignature(payload, secret) {
-        throw new CryptoProvider_js_1.CryptoProviderOnlySupportsAsyncError("SubtleCryptoProvider cannot be used in a synchronous context.");
-      }
-      /** @override */
-      async computeHMACSignatureAsync(payload, secret) {
-        const encoder = new TextEncoder();
-        const key = await this.subtleCrypto.importKey("raw", encoder.encode(secret), {
-          name: "HMAC",
-          hash: { name: "SHA-256" }
-        }, false, ["sign"]);
-        const signatureBuffer = await this.subtleCrypto.sign("hmac", key, encoder.encode(payload));
-        const signatureBytes = new Uint8Array(signatureBuffer);
-        const signatureHexCodes = new Array(signatureBytes.length);
-        for (let i = 0; i < signatureBytes.length; i++) {
-          signatureHexCodes[i] = byteHexMapping[signatureBytes[i]];
-        }
-        return signatureHexCodes.join("");
-      }
-      /** @override */
-      async computeSHA256Async(data) {
-        return new Uint8Array(await this.subtleCrypto.digest("SHA-256", data));
-      }
-    };
-    exports2.SubtleCryptoProvider = SubtleCryptoProvider;
-    var byteHexMapping = new Array(256);
-    for (let i = 0; i < byteHexMapping.length; i++) {
-      byteHexMapping[i] = i.toString(16).padStart(2, "0");
-    }
-  }
-});
-
-// node_modules/stripe/cjs/platform/PlatformFunctions.js
-var require_PlatformFunctions = __commonJS({
-  "node_modules/stripe/cjs/platform/PlatformFunctions.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.PlatformFunctions = void 0;
-    var FetchHttpClient_js_1 = require_FetchHttpClient();
-    var SubtleCryptoProvider_js_1 = require_SubtleCryptoProvider();
-    var PlatformFunctions = class {
-      constructor() {
-        this._fetchFn = null;
-        this._agent = null;
-      }
-      /**
-       * Gets uname with Node's built-in `exec` function, if available.
-       */
-      getUname() {
-        throw new Error("getUname not implemented.");
-      }
-      /**
-       * Generates a v4 UUID. See https://stackoverflow.com/a/2117523
-       */
-      uuid4() {
-        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-          const r = Math.random() * 16 | 0;
-          const v = c === "x" ? r : r & 3 | 8;
-          return v.toString(16);
-        });
-      }
-      /**
-       * Compares strings in constant time.
-       */
-      secureCompare(a, b) {
-        if (a.length !== b.length) {
-          return false;
-        }
-        const len = a.length;
-        let result = 0;
-        for (let i = 0; i < len; ++i) {
-          result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-        }
-        return result === 0;
-      }
-      /**
-       * Creates an event emitter.
-       */
-      createEmitter() {
-        throw new Error("createEmitter not implemented.");
-      }
-      /**
-       * Checks if the request data is a stream. If so, read the entire stream
-       * to a buffer and return the buffer.
-       */
-      tryBufferData(data) {
-        throw new Error("tryBufferData not implemented.");
-      }
-      /**
-       * Creates an HTTP client which uses the Node `http` and `https` packages
-       * to issue requests.
-       */
-      createNodeHttpClient(agent) {
-        throw new Error("createNodeHttpClient not implemented.");
-      }
-      /**
-       * Creates an HTTP client for issuing Stripe API requests which uses the Web
-       * Fetch API.
-       *
-       * A fetch function can optionally be passed in as a parameter. If none is
-       * passed, will default to the default `fetch` function in the global scope.
-       */
-      createFetchHttpClient(fetchFn) {
-        return new FetchHttpClient_js_1.FetchHttpClient(fetchFn);
-      }
-      /**
-       * Creates an HTTP client using runtime-specific APIs.
-       */
-      createDefaultHttpClient() {
-        throw new Error("createDefaultHttpClient not implemented.");
-      }
-      /**
-       * Creates a CryptoProvider which uses the Node `crypto` package for its computations.
-       */
-      createNodeCryptoProvider() {
-        throw new Error("createNodeCryptoProvider not implemented.");
-      }
-      /**
-       * Creates a CryptoProvider which uses the SubtleCrypto interface of the Web Crypto API.
-       */
-      createSubtleCryptoProvider(subtleCrypto) {
-        return new SubtleCryptoProvider_js_1.SubtleCryptoProvider(subtleCrypto);
-      }
-      createDefaultCryptoProvider() {
-        throw new Error("createDefaultCryptoProvider not implemented.");
-      }
-    };
-    exports2.PlatformFunctions = PlatformFunctions;
-  }
-});
-
-// node_modules/stripe/cjs/Error.js
-var require_Error = __commonJS({
-  "node_modules/stripe/cjs/Error.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.TemporarySessionExpiredError = exports2.StripeUnknownError = exports2.StripeInvalidGrantError = exports2.StripeIdempotencyError = exports2.StripeSignatureVerificationError = exports2.StripeConnectionError = exports2.StripeRateLimitError = exports2.StripePermissionError = exports2.StripeAuthenticationError = exports2.StripeAPIError = exports2.StripeInvalidRequestError = exports2.StripeCardError = exports2.StripeError = exports2.generateV2Error = exports2.generateV1Error = void 0;
-    var generateV1Error = (rawStripeError) => {
-      switch (rawStripeError.type) {
-        case "card_error":
-          return new StripeCardError(rawStripeError);
-        case "invalid_request_error":
-          return new StripeInvalidRequestError(rawStripeError);
-        case "api_error":
-          return new StripeAPIError(rawStripeError);
-        case "authentication_error":
-          return new StripeAuthenticationError(rawStripeError);
-        case "rate_limit_error":
-          return new StripeRateLimitError(rawStripeError);
-        case "idempotency_error":
-          return new StripeIdempotencyError(rawStripeError);
-        case "invalid_grant":
-          return new StripeInvalidGrantError(rawStripeError);
-        default:
-          return new StripeUnknownError(rawStripeError);
-      }
-    };
-    exports2.generateV1Error = generateV1Error;
-    var generateV2Error = (rawStripeError) => {
-      switch (rawStripeError.type) {
-        // switchCases: The beginning of the section generated from our OpenAPI spec
-        case "temporary_session_expired":
-          return new TemporarySessionExpiredError(rawStripeError);
-      }
-      switch (rawStripeError.code) {
-        case "invalid_fields":
-          return new StripeInvalidRequestError(rawStripeError);
-      }
-      return (0, exports2.generateV1Error)(rawStripeError);
-    };
-    exports2.generateV2Error = generateV2Error;
-    var StripeError = class extends Error {
-      constructor(raw = {}, type = null) {
-        var _a;
-        super(raw.message);
-        this.type = type || this.constructor.name;
-        this.raw = raw;
-        this.rawType = raw.type;
-        this.code = raw.code;
-        this.doc_url = raw.doc_url;
-        this.param = raw.param;
-        this.detail = raw.detail;
-        this.headers = raw.headers;
-        this.requestId = raw.requestId;
-        this.statusCode = raw.statusCode;
-        this.message = (_a = raw.message) !== null && _a !== void 0 ? _a : "";
-        this.userMessage = raw.user_message;
-        this.charge = raw.charge;
-        this.decline_code = raw.decline_code;
-        this.payment_intent = raw.payment_intent;
-        this.payment_method = raw.payment_method;
-        this.payment_method_type = raw.payment_method_type;
-        this.setup_intent = raw.setup_intent;
-        this.source = raw.source;
-      }
-    };
-    exports2.StripeError = StripeError;
-    StripeError.generate = exports2.generateV1Error;
-    var StripeCardError = class extends StripeError {
-      constructor(raw = {}) {
-        super(raw, "StripeCardError");
-      }
-    };
-    exports2.StripeCardError = StripeCardError;
-    var StripeInvalidRequestError = class extends StripeError {
-      constructor(raw = {}) {
-        super(raw, "StripeInvalidRequestError");
-      }
-    };
-    exports2.StripeInvalidRequestError = StripeInvalidRequestError;
-    var StripeAPIError = class extends StripeError {
-      constructor(raw = {}) {
-        super(raw, "StripeAPIError");
-      }
-    };
-    exports2.StripeAPIError = StripeAPIError;
-    var StripeAuthenticationError = class extends StripeError {
-      constructor(raw = {}) {
-        super(raw, "StripeAuthenticationError");
-      }
-    };
-    exports2.StripeAuthenticationError = StripeAuthenticationError;
-    var StripePermissionError = class extends StripeError {
-      constructor(raw = {}) {
-        super(raw, "StripePermissionError");
-      }
-    };
-    exports2.StripePermissionError = StripePermissionError;
-    var StripeRateLimitError = class extends StripeError {
-      constructor(raw = {}) {
-        super(raw, "StripeRateLimitError");
-      }
-    };
-    exports2.StripeRateLimitError = StripeRateLimitError;
-    var StripeConnectionError = class extends StripeError {
-      constructor(raw = {}) {
-        super(raw, "StripeConnectionError");
-      }
-    };
-    exports2.StripeConnectionError = StripeConnectionError;
-    var StripeSignatureVerificationError = class extends StripeError {
-      constructor(header, payload, raw = {}) {
-        super(raw, "StripeSignatureVerificationError");
-        this.header = header;
-        this.payload = payload;
-      }
-    };
-    exports2.StripeSignatureVerificationError = StripeSignatureVerificationError;
-    var StripeIdempotencyError = class extends StripeError {
-      constructor(raw = {}) {
-        super(raw, "StripeIdempotencyError");
-      }
-    };
-    exports2.StripeIdempotencyError = StripeIdempotencyError;
-    var StripeInvalidGrantError = class extends StripeError {
-      constructor(raw = {}) {
-        super(raw, "StripeInvalidGrantError");
-      }
-    };
-    exports2.StripeInvalidGrantError = StripeInvalidGrantError;
-    var StripeUnknownError = class extends StripeError {
-      constructor(raw = {}) {
-        super(raw, "StripeUnknownError");
-      }
-    };
-    exports2.StripeUnknownError = StripeUnknownError;
-    var TemporarySessionExpiredError = class extends StripeError {
-      constructor(rawStripeError = {}) {
-        super(rawStripeError, "TemporarySessionExpiredError");
-      }
-    };
-    exports2.TemporarySessionExpiredError = TemporarySessionExpiredError;
   }
 });
 
@@ -3452,384 +3344,35 @@ var require_NodePlatformFunctions = __commonJS({
   }
 });
 
-// node_modules/stripe/cjs/RequestSender.js
-var require_RequestSender = __commonJS({
-  "node_modules/stripe/cjs/RequestSender.js"(exports2) {
+// node_modules/stripe/cjs/apiVersion.js
+var require_apiVersion = __commonJS({
+  "node_modules/stripe/cjs/apiVersion.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.RequestSender = void 0;
-    var Error_js_1 = require_Error();
-    var HttpClient_js_1 = require_HttpClient();
-    var utils_js_1 = require_utils2();
-    var MAX_RETRY_AFTER_WAIT = 60;
-    var RequestSender = class _RequestSender {
-      constructor(stripe2, maxBufferedRequestMetric) {
-        this._stripe = stripe2;
-        this._maxBufferedRequestMetric = maxBufferedRequestMetric;
+    exports2.ApiVersion = void 0;
+    exports2.ApiVersion = "2023-10-16";
+  }
+});
+
+// node_modules/stripe/cjs/ResourceNamespace.js
+var require_ResourceNamespace = __commonJS({
+  "node_modules/stripe/cjs/ResourceNamespace.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.resourceNamespace = void 0;
+    function ResourceNamespace(stripe2, resources) {
+      for (const name in resources) {
+        const camelCaseName = name[0].toLowerCase() + name.substring(1);
+        const resource = new resources[name](stripe2);
+        this[camelCaseName] = resource;
       }
-      _normalizeStripeContext(optsContext, clientContext) {
-        if (optsContext) {
-          return optsContext.toString() || null;
-        }
-        return (clientContext === null || clientContext === void 0 ? void 0 : clientContext.toString()) || null;
-      }
-      _addHeadersDirectlyToObject(obj, headers) {
-        obj.requestId = headers["request-id"];
-        obj.stripeAccount = obj.stripeAccount || headers["stripe-account"];
-        obj.apiVersion = obj.apiVersion || headers["stripe-version"];
-        obj.idempotencyKey = obj.idempotencyKey || headers["idempotency-key"];
-      }
-      _makeResponseEvent(requestEvent, statusCode, headers) {
-        const requestEndTime = Date.now();
-        const requestDurationMs = requestEndTime - requestEvent.request_start_time;
-        return (0, utils_js_1.removeNullish)({
-          api_version: headers["stripe-version"],
-          account: headers["stripe-account"],
-          idempotency_key: headers["idempotency-key"],
-          method: requestEvent.method,
-          path: requestEvent.path,
-          status: statusCode,
-          request_id: this._getRequestId(headers),
-          elapsed: requestDurationMs,
-          request_start_time: requestEvent.request_start_time,
-          request_end_time: requestEndTime
-        });
-      }
-      _getRequestId(headers) {
-        return headers["request-id"];
-      }
-      /**
-       * Used by methods with spec.streaming === true. For these methods, we do not
-       * buffer successful responses into memory or do parse them into stripe
-       * objects, we delegate that all of that to the user and pass back the raw
-       * http.Response object to the callback.
-       *
-       * (Unsuccessful responses shouldn't make it here, they should
-       * still be buffered/parsed and handled by _jsonResponseHandler -- see
-       * makeRequest)
-       */
-      _streamingResponseHandler(requestEvent, usage, callback) {
-        return (res) => {
-          const headers = res.getHeaders();
-          const streamCompleteCallback = () => {
-            const responseEvent = this._makeResponseEvent(requestEvent, res.getStatusCode(), headers);
-            this._stripe._emitter.emit("response", responseEvent);
-            this._recordRequestMetrics(this._getRequestId(headers), responseEvent.elapsed, usage);
-          };
-          const stream = res.toStream(streamCompleteCallback);
-          this._addHeadersDirectlyToObject(stream, headers);
-          return callback(null, stream);
-        };
-      }
-      /**
-       * Default handler for Stripe responses. Buffers the response into memory,
-       * parses the JSON and returns it (i.e. passes it to the callback) if there
-       * is no "error" field. Otherwise constructs/passes an appropriate Error.
-       */
-      _jsonResponseHandler(requestEvent, apiMode, usage, callback) {
-        return (res) => {
-          const headers = res.getHeaders();
-          const requestId = this._getRequestId(headers);
-          const statusCode = res.getStatusCode();
-          const responseEvent = this._makeResponseEvent(requestEvent, statusCode, headers);
-          this._stripe._emitter.emit("response", responseEvent);
-          res.toJSON().then((jsonResponse) => {
-            if (jsonResponse.error) {
-              let err;
-              if (typeof jsonResponse.error === "string") {
-                jsonResponse.error = {
-                  type: jsonResponse.error,
-                  message: jsonResponse.error_description
-                };
-              }
-              jsonResponse.error.headers = headers;
-              jsonResponse.error.statusCode = statusCode;
-              jsonResponse.error.requestId = requestId;
-              if (statusCode === 401) {
-                err = new Error_js_1.StripeAuthenticationError(jsonResponse.error);
-              } else if (statusCode === 403) {
-                err = new Error_js_1.StripePermissionError(jsonResponse.error);
-              } else if (statusCode === 429) {
-                err = new Error_js_1.StripeRateLimitError(jsonResponse.error);
-              } else if (apiMode === "v2") {
-                err = (0, Error_js_1.generateV2Error)(jsonResponse.error);
-              } else {
-                err = (0, Error_js_1.generateV1Error)(jsonResponse.error);
-              }
-              throw err;
-            }
-            return jsonResponse;
-          }, (e) => {
-            throw new Error_js_1.StripeAPIError({
-              message: "Invalid JSON received from the Stripe API",
-              exception: e,
-              requestId: headers["request-id"]
-            });
-          }).then((jsonResponse) => {
-            this._recordRequestMetrics(requestId, responseEvent.elapsed, usage);
-            const rawResponse = res.getRawResponse();
-            this._addHeadersDirectlyToObject(rawResponse, headers);
-            Object.defineProperty(jsonResponse, "lastResponse", {
-              enumerable: false,
-              writable: false,
-              value: rawResponse
-            });
-            callback(null, jsonResponse);
-          }, (e) => callback(e, null));
-        };
-      }
-      static _generateConnectionErrorMessage(requestRetries) {
-        return `An error occurred with our connection to Stripe.${requestRetries > 0 ? ` Request was retried ${requestRetries} times.` : ""}`;
-      }
-      // For more on when and how to retry API requests, see https://stripe.com/docs/error-handling#safely-retrying-requests-with-idempotency
-      static _shouldRetry(res, numRetries, maxRetries, error) {
-        if (error && numRetries === 0 && HttpClient_js_1.HttpClient.CONNECTION_CLOSED_ERROR_CODES.includes(error.code)) {
-          return true;
-        }
-        if (numRetries >= maxRetries) {
-          return false;
-        }
-        if (!res) {
-          return true;
-        }
-        if (res.getHeaders()["stripe-should-retry"] === "false") {
-          return false;
-        }
-        if (res.getHeaders()["stripe-should-retry"] === "true") {
-          return true;
-        }
-        if (res.getStatusCode() === 409) {
-          return true;
-        }
-        if (res.getStatusCode() >= 500) {
-          return true;
-        }
-        return false;
-      }
-      _getSleepTimeInMS(numRetries, retryAfter = null) {
-        const initialNetworkRetryDelay = this._stripe.getInitialNetworkRetryDelay();
-        const maxNetworkRetryDelay = this._stripe.getMaxNetworkRetryDelay();
-        let sleepSeconds = Math.min(initialNetworkRetryDelay * Math.pow(2, numRetries - 1), maxNetworkRetryDelay);
-        sleepSeconds *= 0.5 * (1 + Math.random());
-        sleepSeconds = Math.max(initialNetworkRetryDelay, sleepSeconds);
-        if (Number.isInteger(retryAfter) && retryAfter <= MAX_RETRY_AFTER_WAIT) {
-          sleepSeconds = Math.max(sleepSeconds, retryAfter);
-        }
-        return sleepSeconds * 1e3;
-      }
-      // Max retries can be set on a per request basis. Favor those over the global setting
-      _getMaxNetworkRetries(settings = {}) {
-        return settings.maxNetworkRetries !== void 0 && Number.isInteger(settings.maxNetworkRetries) ? settings.maxNetworkRetries : this._stripe.getMaxNetworkRetries();
-      }
-      _defaultIdempotencyKey(method, settings, apiMode) {
-        const maxRetries = this._getMaxNetworkRetries(settings);
-        const genKey = () => `stripe-node-retry-${this._stripe._platformFunctions.uuid4()}`;
-        if (apiMode === "v2") {
-          if (method === "POST" || method === "DELETE") {
-            return genKey();
-          }
-        } else if (apiMode === "v1") {
-          if (method === "POST" && maxRetries > 0) {
-            return genKey();
-          }
-        }
-        return null;
-      }
-      _makeHeaders({ contentType, contentLength, apiVersion, clientUserAgent, method, userSuppliedHeaders, userSuppliedSettings, stripeAccount, stripeContext, apiMode }) {
-        const defaultHeaders = {
-          Accept: "application/json",
-          "Content-Type": contentType,
-          "User-Agent": this._getUserAgentString(apiMode),
-          "X-Stripe-Client-User-Agent": clientUserAgent,
-          "X-Stripe-Client-Telemetry": this._getTelemetryHeader(),
-          "Stripe-Version": apiVersion,
-          "Stripe-Account": stripeAccount,
-          "Stripe-Context": stripeContext,
-          "Idempotency-Key": this._defaultIdempotencyKey(method, userSuppliedSettings, apiMode)
-        };
-        const methodHasPayload = method == "POST" || method == "PUT" || method == "PATCH";
-        if (methodHasPayload || contentLength) {
-          if (!methodHasPayload) {
-            (0, utils_js_1.emitWarning)(`${method} method had non-zero contentLength but no payload is expected for this verb`);
-          }
-          defaultHeaders["Content-Length"] = contentLength;
-        }
-        return Object.assign(
-          (0, utils_js_1.removeNullish)(defaultHeaders),
-          // If the user supplied, say 'idempotency-key', override instead of appending by ensuring caps are the same.
-          (0, utils_js_1.normalizeHeaders)(userSuppliedHeaders)
-        );
-      }
-      _getUserAgentString(apiMode) {
-        const packageVersion = this._stripe.getConstant("PACKAGE_VERSION");
-        const appInfo = this._stripe._appInfo ? this._stripe.getAppInfoAsString() : "";
-        return `Stripe/${apiMode} NodeBindings/${packageVersion} ${appInfo}`.trim();
-      }
-      _getTelemetryHeader() {
-        if (this._stripe.getTelemetryEnabled() && this._stripe._prevRequestMetrics.length > 0) {
-          const metrics = this._stripe._prevRequestMetrics.shift();
-          return JSON.stringify({
-            last_request_metrics: metrics
-          });
-        }
-      }
-      _recordRequestMetrics(requestId, requestDurationMs, usage) {
-        if (this._stripe.getTelemetryEnabled() && requestId) {
-          if (this._stripe._prevRequestMetrics.length > this._maxBufferedRequestMetric) {
-            (0, utils_js_1.emitWarning)("Request metrics buffer is full, dropping telemetry message.");
-          } else {
-            const m = {
-              request_id: requestId,
-              request_duration_ms: requestDurationMs
-            };
-            if (usage && usage.length > 0) {
-              m.usage = usage;
-            }
-            this._stripe._prevRequestMetrics.push(m);
-          }
-        }
-      }
-      _rawRequest(method, path, params, options, usage) {
-        const requestPromise = new Promise((resolve, reject) => {
-          let opts;
-          try {
-            const requestMethod = method.toUpperCase();
-            if (requestMethod !== "POST" && params && Object.keys(params).length !== 0) {
-              throw new Error("rawRequest only supports params on POST requests. Please pass null and add your parameters to path.");
-            }
-            const args = [].slice.call([params, options]);
-            const dataFromArgs = (0, utils_js_1.getDataFromArgs)(args);
-            const data = requestMethod === "POST" ? Object.assign({}, dataFromArgs) : null;
-            const calculatedOptions = (0, utils_js_1.getOptionsFromArgs)(args);
-            const headers2 = calculatedOptions.headers;
-            const authenticator2 = calculatedOptions.authenticator;
-            opts = {
-              requestMethod,
-              requestPath: path,
-              bodyData: data,
-              queryData: {},
-              authenticator: authenticator2,
-              headers: headers2,
-              host: calculatedOptions.host,
-              streaming: !!calculatedOptions.streaming,
-              settings: {},
-              // We use this for thin event internals, so we should record the more specific `usage`, when available
-              usage: usage || ["raw_request"]
-            };
-          } catch (err) {
-            reject(err);
-            return;
-          }
-          function requestCallback(err, response) {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(response);
-            }
-          }
-          const { headers, settings } = opts;
-          const authenticator = opts.authenticator;
-          this._request(opts.requestMethod, opts.host, path, opts.bodyData, authenticator, { headers, settings, streaming: opts.streaming }, opts.usage, requestCallback);
-        });
-        return requestPromise;
-      }
-      _request(method, host, path, data, authenticator, options, usage = [], callback, requestDataProcessor = null) {
-        var _a;
-        let requestData;
-        authenticator = (_a = authenticator !== null && authenticator !== void 0 ? authenticator : this._stripe._authenticator) !== null && _a !== void 0 ? _a : null;
-        const apiMode = (0, utils_js_1.getAPIMode)(path);
-        const retryRequest = (requestFn, apiVersion, headers, requestRetries, retryAfter) => {
-          return setTimeout(requestFn, this._getSleepTimeInMS(requestRetries, retryAfter), apiVersion, headers, requestRetries + 1);
-        };
-        const makeRequest = (apiVersion, headers, numRetries) => {
-          const timeout = options.settings && options.settings.timeout && Number.isInteger(options.settings.timeout) && options.settings.timeout >= 0 ? options.settings.timeout : this._stripe.getApiField("timeout");
-          const request = {
-            host: host || this._stripe.getApiField("host"),
-            port: this._stripe.getApiField("port"),
-            path,
-            method,
-            headers: Object.assign({}, headers),
-            body: requestData,
-            protocol: this._stripe.getApiField("protocol")
-          };
-          authenticator(request).then(() => {
-            const req = this._stripe.getApiField("httpClient").makeRequest(request.host, request.port, request.path, request.method, request.headers, request.body, request.protocol, timeout);
-            const requestStartTime = Date.now();
-            const requestEvent = (0, utils_js_1.removeNullish)({
-              api_version: apiVersion,
-              account: (0, utils_js_1.parseHttpHeaderAsString)(headers["Stripe-Account"]),
-              idempotency_key: (0, utils_js_1.parseHttpHeaderAsString)(headers["Idempotency-Key"]),
-              method,
-              path,
-              request_start_time: requestStartTime
-            });
-            const requestRetries = numRetries || 0;
-            const maxRetries = this._getMaxNetworkRetries(options.settings || {});
-            this._stripe._emitter.emit("request", requestEvent);
-            req.then((res) => {
-              if (_RequestSender._shouldRetry(res, requestRetries, maxRetries)) {
-                return retryRequest(makeRequest, apiVersion, headers, requestRetries, (0, utils_js_1.parseHttpHeaderAsNumber)(res.getHeaders()["retry-after"]));
-              } else if (options.streaming && res.getStatusCode() < 400) {
-                return this._streamingResponseHandler(requestEvent, usage, callback)(res);
-              } else {
-                return this._jsonResponseHandler(requestEvent, apiMode, usage, callback)(res);
-              }
-            }).catch((error) => {
-              if (_RequestSender._shouldRetry(null, requestRetries, maxRetries, error)) {
-                return retryRequest(makeRequest, apiVersion, headers, requestRetries, null);
-              } else {
-                const isTimeoutError = error.code && error.code === HttpClient_js_1.HttpClient.TIMEOUT_ERROR_CODE;
-                return callback(new Error_js_1.StripeConnectionError({
-                  message: isTimeoutError ? `Request aborted due to timeout being reached (${timeout}ms)` : _RequestSender._generateConnectionErrorMessage(requestRetries),
-                  detail: error
-                }));
-              }
-            });
-          }).catch((e) => {
-            throw new Error_js_1.StripeError({
-              message: "Unable to authenticate the request",
-              exception: e
-            });
-          });
-        };
-        const prepareAndMakeRequest = (error, data2) => {
-          if (error) {
-            return callback(error);
-          }
-          requestData = data2;
-          this._stripe.getClientUserAgent((clientUserAgent) => {
-            var _a2, _b, _c;
-            const apiVersion = this._stripe.getApiField("version");
-            const headers = this._makeHeaders({
-              contentType: apiMode == "v2" ? "application/json" : "application/x-www-form-urlencoded",
-              contentLength: new TextEncoder().encode(requestData).length,
-              apiVersion,
-              clientUserAgent,
-              method,
-              // other callers expect null, but .headers being optional means it's undefined if not supplied. So we normalize to null.
-              userSuppliedHeaders: (_a2 = options.headers) !== null && _a2 !== void 0 ? _a2 : null,
-              userSuppliedSettings: (_b = options.settings) !== null && _b !== void 0 ? _b : {},
-              stripeAccount: (_c = options.stripeAccount) !== null && _c !== void 0 ? _c : this._stripe.getApiField("stripeAccount"),
-              stripeContext: this._normalizeStripeContext(options.stripeContext, this._stripe.getApiField("stripeContext")),
-              apiMode
-            });
-            makeRequest(apiVersion, headers, 0);
-          });
-        };
-        if (requestDataProcessor) {
-          requestDataProcessor(method, data, options.headers, prepareAndMakeRequest);
-        } else {
-          let stringifiedData;
-          if (apiMode == "v2") {
-            stringifiedData = data ? (0, utils_js_1.jsonStringifyRequestData)(data) : "";
-          } else {
-            stringifiedData = (0, utils_js_1.queryStringifyRequestData)(data || {}, apiMode);
-          }
-          prepareAndMakeRequest(null, stringifiedData);
-        }
-      }
-    };
-    exports2.RequestSender = RequestSender;
+    }
+    function resourceNamespace(namespace, resources) {
+      return function(stripe2) {
+        return new ResourceNamespace(stripe2, resources);
+      };
+    }
+    exports2.resourceNamespace = resourceNamespace;
   }
 });
 
@@ -3840,7 +3383,7 @@ var require_autoPagination = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.makeAutoPaginationMethods = void 0;
     var utils_js_1 = require_utils2();
-    var V1Iterator = class {
+    var StripeIterator = class {
       constructor(firstPagePromise, requestArgs, spec, stripeResource) {
         this.index = 0;
         this.pagePromise = firstPagePromise;
@@ -3887,7 +3430,7 @@ var require_autoPagination = __commonJS({
         return nextPromise;
       }
     };
-    var V1ListIterator = class extends V1Iterator {
+    var ListIterator = class extends StripeIterator {
       getNextPage(pageResult) {
         const reverseIteration = isReverseIteration(this.requestArgs);
         const lastId = getLastId(pageResult, reverseIteration);
@@ -3896,7 +3439,7 @@ var require_autoPagination = __commonJS({
         });
       }
     };
-    var V1SearchIterator = class extends V1Iterator {
+    var SearchIterator = class extends StripeIterator {
       getNextPage(pageResult) {
         if (!pageResult.next_page) {
           throw Error("Unexpected: Stripe API response does not have a well-formed `next_page` field, but `has_more` was true.");
@@ -3906,56 +3449,12 @@ var require_autoPagination = __commonJS({
         });
       }
     };
-    var V2ListIterator = class {
-      constructor(firstPagePromise, requestArgs, spec, stripeResource) {
-        this.currentPageIterator = (async () => {
-          const page = await firstPagePromise;
-          return page.data[Symbol.iterator]();
-        })();
-        this.nextPageUrl = (async () => {
-          const page = await firstPagePromise;
-          return page.next_page_url || null;
-        })();
-        this.requestArgs = requestArgs;
-        this.spec = spec;
-        this.stripeResource = stripeResource;
-      }
-      async turnPage() {
-        const nextPageUrl = await this.nextPageUrl;
-        if (!nextPageUrl)
-          return null;
-        this.spec.fullPath = nextPageUrl;
-        const page = await this.stripeResource._makeRequest([], this.spec, {});
-        this.nextPageUrl = Promise.resolve(page.next_page_url);
-        this.currentPageIterator = Promise.resolve(page.data[Symbol.iterator]());
-        return this.currentPageIterator;
-      }
-      async next() {
-        {
-          const result2 = (await this.currentPageIterator).next();
-          if (!result2.done)
-            return { done: false, value: result2.value };
-        }
-        const nextPageIterator = await this.turnPage();
-        if (!nextPageIterator) {
-          return { done: true, value: void 0 };
-        }
-        const result = nextPageIterator.next();
-        if (!result.done)
-          return { done: false, value: result.value };
-        return { done: true, value: void 0 };
-      }
-    };
     var makeAutoPaginationMethods = (stripeResource, requestArgs, spec, firstPagePromise) => {
-      const apiMode = (0, utils_js_1.getAPIMode)(spec.fullPath || spec.path);
-      if (apiMode !== "v2" && spec.methodType === "search") {
-        return makeAutoPaginationMethodsFromIterator(new V1SearchIterator(firstPagePromise, requestArgs, spec, stripeResource));
+      if (spec.methodType === "search") {
+        return makeAutoPaginationMethodsFromIterator(new SearchIterator(firstPagePromise, requestArgs, spec, stripeResource));
       }
-      if (apiMode !== "v2" && spec.methodType === "list") {
-        return makeAutoPaginationMethodsFromIterator(new V1ListIterator(firstPagePromise, requestArgs, spec, stripeResource));
-      }
-      if (apiMode === "v2" && spec.methodType === "list") {
-        return makeAutoPaginationMethodsFromIterator(new V2ListIterator(firstPagePromise, requestArgs, spec, stripeResource));
+      if (spec.methodType === "list") {
+        return makeAutoPaginationMethodsFromIterator(new ListIterator(firstPagePromise, requestArgs, spec, stripeResource));
       }
       return null;
     };
@@ -4181,7 +3680,6 @@ var require_StripeResource = __commonJS({
         return parts.join("/").replace(/\/{2,}/g, "/");
       },
       _getRequestOpts(requestArgs, spec, overrideData) {
-        var _a;
         const requestMethod = (spec.method || "GET").toUpperCase();
         const usage = spec.usage || [];
         const urlParams = spec.urlParams || [];
@@ -4202,7 +3700,7 @@ var require_StripeResource = __commonJS({
         const data = encode(Object.assign({}, dataFromArgs, overrideData));
         const options = (0, utils_js_1.getOptionsFromArgs)(args);
         const host = options.host || spec.host;
-        const streaming = !!spec.streaming || !!options.streaming;
+        const streaming = !!spec.streaming;
         if (args.filter((x) => x != null).length) {
           throw new Error(`Stripe: Unknown arguments (${args}). Did you mean to pass an options object? See https://github.com/stripe/stripe-node/wiki/Passing-Options. (on API request to ${requestMethod} \`${path}\`)`);
         }
@@ -4212,14 +3710,14 @@ var require_StripeResource = __commonJS({
           spec.validator(data, { headers });
         }
         const dataInQuery = spec.method === "GET" || spec.method === "DELETE";
-        const bodyData = dataInQuery ? null : data;
+        const bodyData = dataInQuery ? {} : data;
         const queryData = dataInQuery ? data : {};
         return {
           requestMethod,
           requestPath,
           bodyData,
           queryData,
-          authenticator: (_a = options.authenticator) !== null && _a !== void 0 ? _a : null,
+          auth: options.auth,
           headers,
           host: host !== null && host !== void 0 ? host : null,
           streaming,
@@ -4248,300 +3746,13 @@ var require_StripeResource = __commonJS({
           const path = [
             opts.requestPath,
             emptyQuery ? "" : "?",
-            (0, utils_js_1.queryStringifyRequestData)(opts.queryData, (0, utils_js_1.getAPIMode)(opts.requestPath))
+            (0, utils_js_1.stringifyRequestData)(opts.queryData)
           ].join("");
           const { headers, settings } = opts;
-          this._stripe._requestSender._request(opts.requestMethod, opts.host, path, opts.bodyData, opts.authenticator, {
-            headers,
-            settings,
-            streaming: opts.streaming
-          }, opts.usage, requestCallback, (_a = this.requestDataProcessor) === null || _a === void 0 ? void 0 : _a.bind(this));
+          this._stripe._requestSender._request(opts.requestMethod, opts.host, path, opts.bodyData, opts.auth, { headers, settings, streaming: opts.streaming }, opts.usage, requestCallback, (_a = this.requestDataProcessor) === null || _a === void 0 ? void 0 : _a.bind(this));
         });
       }
     };
-  }
-});
-
-// node_modules/stripe/cjs/StripeContext.js
-var require_StripeContext = __commonJS({
-  "node_modules/stripe/cjs/StripeContext.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.StripeContext = void 0;
-    var StripeContext = class _StripeContext {
-      /**
-       * Creates a new StripeContext with the given segments.
-       */
-      constructor(segments = []) {
-        this._segments = [...segments];
-      }
-      /**
-       * Gets a copy of the segments of this Context.
-       */
-      get segments() {
-        return [...this._segments];
-      }
-      /**
-       * Creates a new StripeContext with an additional segment appended.
-       */
-      push(segment) {
-        if (!segment) {
-          throw new Error("Segment cannot be null or undefined");
-        }
-        return new _StripeContext([...this._segments, segment]);
-      }
-      /**
-       * Creates a new StripeContext with the last segment removed.
-       * If there are no segments, throws an error.
-       */
-      pop() {
-        if (this._segments.length === 0) {
-          throw new Error("Cannot pop from an empty context");
-        }
-        return new _StripeContext(this._segments.slice(0, -1));
-      }
-      /**
-       * Converts this context to its string representation.
-       */
-      toString() {
-        return this._segments.join("/");
-      }
-      /**
-       * Parses a context string into a StripeContext instance.
-       */
-      static parse(contextStr) {
-        if (!contextStr) {
-          return new _StripeContext([]);
-        }
-        return new _StripeContext(contextStr.split("/"));
-      }
-    };
-    exports2.StripeContext = StripeContext;
-  }
-});
-
-// node_modules/stripe/cjs/Webhooks.js
-var require_Webhooks = __commonJS({
-  "node_modules/stripe/cjs/Webhooks.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.createWebhooks = void 0;
-    var Error_js_1 = require_Error();
-    var CryptoProvider_js_1 = require_CryptoProvider();
-    function createWebhooks(platformFunctions) {
-      const Webhook = {
-        DEFAULT_TOLERANCE: 300,
-        signature: null,
-        constructEvent(payload, header, secret, tolerance, cryptoProvider, receivedAt) {
-          try {
-            if (!this.signature) {
-              throw new Error("ERR: missing signature helper, unable to verify");
-            }
-            this.signature.verifyHeader(payload, header, secret, tolerance || Webhook.DEFAULT_TOLERANCE, cryptoProvider, receivedAt);
-          } catch (e) {
-            if (e instanceof CryptoProvider_js_1.CryptoProviderOnlySupportsAsyncError) {
-              e.message += "\nUse `await constructEventAsync(...)` instead of `constructEvent(...)`";
-            }
-            throw e;
-          }
-          const jsonPayload = payload instanceof Uint8Array ? JSON.parse(new TextDecoder("utf8").decode(payload)) : JSON.parse(payload);
-          return jsonPayload;
-        },
-        async constructEventAsync(payload, header, secret, tolerance, cryptoProvider, receivedAt) {
-          if (!this.signature) {
-            throw new Error("ERR: missing signature helper, unable to verify");
-          }
-          await this.signature.verifyHeaderAsync(payload, header, secret, tolerance || Webhook.DEFAULT_TOLERANCE, cryptoProvider, receivedAt);
-          const jsonPayload = payload instanceof Uint8Array ? JSON.parse(new TextDecoder("utf8").decode(payload)) : JSON.parse(payload);
-          return jsonPayload;
-        },
-        /**
-         * Generates a header to be used for webhook mocking
-         *
-         * @typedef {object} opts
-         * @property {number} timestamp - Timestamp of the header. Defaults to Date.now()
-         * @property {string} payload - JSON stringified payload object, containing the 'id' and 'object' parameters
-         * @property {string} secret - Stripe webhook secret 'whsec_...'
-         * @property {string} scheme - Version of API to hit. Defaults to 'v1'.
-         * @property {string} signature - Computed webhook signature
-         * @property {CryptoProvider} cryptoProvider - Crypto provider to use for computing the signature if none was provided. Defaults to NodeCryptoProvider.
-         */
-        generateTestHeaderString: function(opts) {
-          const preparedOpts = prepareOptions(opts);
-          const signature2 = preparedOpts.signature || preparedOpts.cryptoProvider.computeHMACSignature(preparedOpts.payloadString, preparedOpts.secret);
-          return preparedOpts.generateHeaderString(signature2);
-        },
-        generateTestHeaderStringAsync: async function(opts) {
-          const preparedOpts = prepareOptions(opts);
-          const signature2 = preparedOpts.signature || await preparedOpts.cryptoProvider.computeHMACSignatureAsync(preparedOpts.payloadString, preparedOpts.secret);
-          return preparedOpts.generateHeaderString(signature2);
-        }
-      };
-      const signature = {
-        EXPECTED_SCHEME: "v1",
-        verifyHeader(encodedPayload, encodedHeader, secret, tolerance, cryptoProvider, receivedAt) {
-          const { decodedHeader: header, decodedPayload: payload, details, suspectPayloadType } = parseEventDetails(encodedPayload, encodedHeader, this.EXPECTED_SCHEME);
-          const secretContainsWhitespace = /\s/.test(secret);
-          cryptoProvider = cryptoProvider || getCryptoProvider();
-          const expectedSignature = cryptoProvider.computeHMACSignature(makeHMACContent(payload, details), secret);
-          validateComputedSignature(payload, header, details, expectedSignature, tolerance, suspectPayloadType, secretContainsWhitespace, receivedAt);
-          return true;
-        },
-        async verifyHeaderAsync(encodedPayload, encodedHeader, secret, tolerance, cryptoProvider, receivedAt) {
-          const { decodedHeader: header, decodedPayload: payload, details, suspectPayloadType } = parseEventDetails(encodedPayload, encodedHeader, this.EXPECTED_SCHEME);
-          const secretContainsWhitespace = /\s/.test(secret);
-          cryptoProvider = cryptoProvider || getCryptoProvider();
-          const expectedSignature = await cryptoProvider.computeHMACSignatureAsync(makeHMACContent(payload, details), secret);
-          return validateComputedSignature(payload, header, details, expectedSignature, tolerance, suspectPayloadType, secretContainsWhitespace, receivedAt);
-        }
-      };
-      function makeHMACContent(payload, details) {
-        return `${details.timestamp}.${payload}`;
-      }
-      function parseEventDetails(encodedPayload, encodedHeader, expectedScheme) {
-        if (!encodedPayload) {
-          throw new Error_js_1.StripeSignatureVerificationError(encodedHeader, encodedPayload, {
-            message: "No webhook payload was provided."
-          });
-        }
-        const suspectPayloadType = typeof encodedPayload != "string" && !(encodedPayload instanceof Uint8Array);
-        const textDecoder = new TextDecoder("utf8");
-        const decodedPayload = encodedPayload instanceof Uint8Array ? textDecoder.decode(encodedPayload) : encodedPayload;
-        if (Array.isArray(encodedHeader)) {
-          throw new Error("Unexpected: An array was passed as a header, which should not be possible for the stripe-signature header.");
-        }
-        if (encodedHeader == null || encodedHeader == "") {
-          throw new Error_js_1.StripeSignatureVerificationError(encodedHeader, encodedPayload, {
-            message: "No stripe-signature header value was provided."
-          });
-        }
-        const decodedHeader = encodedHeader instanceof Uint8Array ? textDecoder.decode(encodedHeader) : encodedHeader;
-        const details = parseHeader(decodedHeader, expectedScheme);
-        if (!details || details.timestamp === -1) {
-          throw new Error_js_1.StripeSignatureVerificationError(decodedHeader, decodedPayload, {
-            message: "Unable to extract timestamp and signatures from header"
-          });
-        }
-        if (!details.signatures.length) {
-          throw new Error_js_1.StripeSignatureVerificationError(decodedHeader, decodedPayload, {
-            message: "No signatures found with expected scheme"
-          });
-        }
-        return {
-          decodedPayload,
-          decodedHeader,
-          details,
-          suspectPayloadType
-        };
-      }
-      function validateComputedSignature(payload, header, details, expectedSignature, tolerance, suspectPayloadType, secretContainsWhitespace, receivedAt) {
-        const signatureFound = !!details.signatures.filter(platformFunctions.secureCompare.bind(platformFunctions, expectedSignature)).length;
-        const docsLocation = "\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature";
-        const whitespaceMessage = secretContainsWhitespace ? "\n\nNote: The provided signing secret contains whitespace. This often indicates an extra newline or space is in the value" : "";
-        if (!signatureFound) {
-          if (suspectPayloadType) {
-            throw new Error_js_1.StripeSignatureVerificationError(header, payload, {
-              message: "Webhook payload must be provided as a string or a Buffer (https://nodejs.org/api/buffer.html) instance representing the _raw_ request body.Payload was provided as a parsed JavaScript object instead. \nSignature verification is impossible without access to the original signed material. \n" + docsLocation + "\n" + whitespaceMessage
-            });
-          }
-          throw new Error_js_1.StripeSignatureVerificationError(header, payload, {
-            message: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n" + docsLocation + "\n" + whitespaceMessage
-          });
-        }
-        const timestampAge = Math.floor((typeof receivedAt === "number" ? receivedAt : Date.now()) / 1e3) - details.timestamp;
-        if (tolerance > 0 && timestampAge > tolerance) {
-          throw new Error_js_1.StripeSignatureVerificationError(header, payload, {
-            message: "Timestamp outside the tolerance zone"
-          });
-        }
-        return true;
-      }
-      function parseHeader(header, scheme) {
-        if (typeof header !== "string") {
-          return null;
-        }
-        return header.split(",").reduce((accum, item) => {
-          const kv = item.split("=");
-          if (kv[0] === "t") {
-            accum.timestamp = parseInt(kv[1], 10);
-          }
-          if (kv[0] === scheme) {
-            accum.signatures.push(kv[1]);
-          }
-          return accum;
-        }, {
-          timestamp: -1,
-          signatures: []
-        });
-      }
-      let webhooksCryptoProviderInstance = null;
-      function getCryptoProvider() {
-        if (!webhooksCryptoProviderInstance) {
-          webhooksCryptoProviderInstance = platformFunctions.createDefaultCryptoProvider();
-        }
-        return webhooksCryptoProviderInstance;
-      }
-      function prepareOptions(opts) {
-        if (!opts) {
-          throw new Error_js_1.StripeError({
-            message: "Options are required"
-          });
-        }
-        const timestamp = Math.floor(opts.timestamp) || Math.floor(Date.now() / 1e3);
-        const scheme = opts.scheme || signature.EXPECTED_SCHEME;
-        const cryptoProvider = opts.cryptoProvider || getCryptoProvider();
-        const payloadString = `${timestamp}.${opts.payload}`;
-        const generateHeaderString = (signature2) => {
-          return `t=${timestamp},${scheme}=${signature2}`;
-        };
-        return Object.assign(Object.assign({}, opts), {
-          timestamp,
-          scheme,
-          cryptoProvider,
-          payloadString,
-          generateHeaderString
-        });
-      }
-      Webhook.signature = signature;
-      return Webhook;
-    }
-    exports2.createWebhooks = createWebhooks;
-  }
-});
-
-// node_modules/stripe/cjs/apiVersion.js
-var require_apiVersion = __commonJS({
-  "node_modules/stripe/cjs/apiVersion.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.ApiMajorVersion = exports2.ApiVersion = void 0;
-    exports2.ApiVersion = "2025-10-29.clover";
-    exports2.ApiMajorVersion = "clover";
-  }
-});
-
-// node_modules/stripe/cjs/ResourceNamespace.js
-var require_ResourceNamespace = __commonJS({
-  "node_modules/stripe/cjs/ResourceNamespace.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.resourceNamespace = void 0;
-    function ResourceNamespace(stripe2, resources) {
-      for (const name in resources) {
-        if (!Object.prototype.hasOwnProperty.call(resources, name)) {
-          continue;
-        }
-        const camelCaseName = name[0].toLowerCase() + name.substring(1);
-        const resource = new resources[name](stripe2);
-        this[camelCaseName] = resource;
-      }
-    }
-    function resourceNamespace(namespace, resources) {
-      return function(stripe2) {
-        return new ResourceNamespace(stripe2, resources);
-      };
-    }
-    exports2.resourceNamespace = resourceNamespace;
   }
 });
 
@@ -4610,40 +3821,41 @@ var require_ActiveEntitlements = __commonJS({
   }
 });
 
-// node_modules/stripe/cjs/resources/Billing/Alerts.js
-var require_Alerts = __commonJS({
-  "node_modules/stripe/cjs/resources/Billing/Alerts.js"(exports2) {
+// node_modules/stripe/cjs/resources/TestHelpers/Issuing/Authorizations.js
+var require_Authorizations = __commonJS({
+  "node_modules/stripe/cjs/resources/TestHelpers/Issuing/Authorizations.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.Alerts = void 0;
+    exports2.Authorizations = void 0;
     var StripeResource_js_1 = require_StripeResource();
     var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.Alerts = StripeResource_js_1.StripeResource.extend({
-      create: stripeMethod({ method: "POST", fullPath: "/v1/billing/alerts" }),
-      retrieve: stripeMethod({ method: "GET", fullPath: "/v1/billing/alerts/{id}" }),
-      list: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/billing/alerts",
-        methodType: "list"
-      }),
-      activate: stripeMethod({
+    exports2.Authorizations = StripeResource_js_1.StripeResource.extend({
+      create: stripeMethod({
         method: "POST",
-        fullPath: "/v1/billing/alerts/{id}/activate"
+        fullPath: "/v1/test_helpers/issuing/authorizations"
       }),
-      archive: stripeMethod({
+      capture: stripeMethod({
         method: "POST",
-        fullPath: "/v1/billing/alerts/{id}/archive"
+        fullPath: "/v1/test_helpers/issuing/authorizations/{authorization}/capture"
       }),
-      deactivate: stripeMethod({
+      expire: stripeMethod({
         method: "POST",
-        fullPath: "/v1/billing/alerts/{id}/deactivate"
+        fullPath: "/v1/test_helpers/issuing/authorizations/{authorization}/expire"
+      }),
+      increment: stripeMethod({
+        method: "POST",
+        fullPath: "/v1/test_helpers/issuing/authorizations/{authorization}/increment"
+      }),
+      reverse: stripeMethod({
+        method: "POST",
+        fullPath: "/v1/test_helpers/issuing/authorizations/{authorization}/reverse"
       })
     });
   }
 });
 
 // node_modules/stripe/cjs/resources/Issuing/Authorizations.js
-var require_Authorizations = __commonJS({
+var require_Authorizations2 = __commonJS({
   "node_modules/stripe/cjs/resources/Issuing/Authorizations.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -4676,47 +3888,6 @@ var require_Authorizations = __commonJS({
   }
 });
 
-// node_modules/stripe/cjs/resources/TestHelpers/Issuing/Authorizations.js
-var require_Authorizations2 = __commonJS({
-  "node_modules/stripe/cjs/resources/TestHelpers/Issuing/Authorizations.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.Authorizations = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.Authorizations = StripeResource_js_1.StripeResource.extend({
-      create: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/issuing/authorizations"
-      }),
-      capture: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/issuing/authorizations/{authorization}/capture"
-      }),
-      expire: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/issuing/authorizations/{authorization}/expire"
-      }),
-      finalizeAmount: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/issuing/authorizations/{authorization}/finalize_amount"
-      }),
-      increment: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/issuing/authorizations/{authorization}/increment"
-      }),
-      respond: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/issuing/authorizations/{authorization}/fraud_challenges/respond"
-      }),
-      reverse: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/issuing/authorizations/{authorization}/reverse"
-      })
-    });
-  }
-});
-
 // node_modules/stripe/cjs/resources/Tax/Calculations.js
 var require_Calculations = __commonJS({
   "node_modules/stripe/cjs/resources/Tax/Calculations.js"(exports2) {
@@ -4727,10 +3898,6 @@ var require_Calculations = __commonJS({
     var stripeMethod = StripeResource_js_1.StripeResource.method;
     exports2.Calculations = StripeResource_js_1.StripeResource.extend({
       create: stripeMethod({ method: "POST", fullPath: "/v1/tax/calculations" }),
-      retrieve: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/tax/calculations/{calculation}"
-      }),
       listLineItems: stripeMethod({
         method: "GET",
         fullPath: "/v1/tax/calculations/{calculation}/line_items",
@@ -4767,29 +3934,8 @@ var require_Cardholders = __commonJS({
   }
 });
 
-// node_modules/stripe/cjs/resources/Issuing/Cards.js
-var require_Cards = __commonJS({
-  "node_modules/stripe/cjs/resources/Issuing/Cards.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.Cards = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.Cards = StripeResource_js_1.StripeResource.extend({
-      create: stripeMethod({ method: "POST", fullPath: "/v1/issuing/cards" }),
-      retrieve: stripeMethod({ method: "GET", fullPath: "/v1/issuing/cards/{card}" }),
-      update: stripeMethod({ method: "POST", fullPath: "/v1/issuing/cards/{card}" }),
-      list: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/issuing/cards",
-        methodType: "list"
-      })
-    });
-  }
-});
-
 // node_modules/stripe/cjs/resources/TestHelpers/Issuing/Cards.js
-var require_Cards2 = __commonJS({
+var require_Cards = __commonJS({
   "node_modules/stripe/cjs/resources/TestHelpers/Issuing/Cards.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -4812,10 +3958,27 @@ var require_Cards2 = __commonJS({
       shipCard: stripeMethod({
         method: "POST",
         fullPath: "/v1/test_helpers/issuing/cards/{card}/shipping/ship"
-      }),
-      submitCard: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/issuing/cards/{card}/shipping/submit"
+      })
+    });
+  }
+});
+
+// node_modules/stripe/cjs/resources/Issuing/Cards.js
+var require_Cards2 = __commonJS({
+  "node_modules/stripe/cjs/resources/Issuing/Cards.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.Cards = void 0;
+    var StripeResource_js_1 = require_StripeResource();
+    var stripeMethod = StripeResource_js_1.StripeResource.method;
+    exports2.Cards = StripeResource_js_1.StripeResource.extend({
+      create: stripeMethod({ method: "POST", fullPath: "/v1/issuing/cards" }),
+      retrieve: stripeMethod({ method: "GET", fullPath: "/v1/issuing/cards/{card}" }),
+      update: stripeMethod({ method: "POST", fullPath: "/v1/issuing/cards/{card}" }),
+      list: stripeMethod({
+        method: "GET",
+        fullPath: "/v1/issuing/cards",
+        methodType: "list"
       })
     });
   }
@@ -4914,80 +4077,6 @@ var require_ConnectionTokens = __commonJS({
       create: stripeMethod({
         method: "POST",
         fullPath: "/v1/terminal/connection_tokens"
-      })
-    });
-  }
-});
-
-// node_modules/stripe/cjs/resources/Billing/CreditBalanceSummary.js
-var require_CreditBalanceSummary = __commonJS({
-  "node_modules/stripe/cjs/resources/Billing/CreditBalanceSummary.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.CreditBalanceSummary = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.CreditBalanceSummary = StripeResource_js_1.StripeResource.extend({
-      retrieve: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/billing/credit_balance_summary"
-      })
-    });
-  }
-});
-
-// node_modules/stripe/cjs/resources/Billing/CreditBalanceTransactions.js
-var require_CreditBalanceTransactions = __commonJS({
-  "node_modules/stripe/cjs/resources/Billing/CreditBalanceTransactions.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.CreditBalanceTransactions = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.CreditBalanceTransactions = StripeResource_js_1.StripeResource.extend({
-      retrieve: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/billing/credit_balance_transactions/{id}"
-      }),
-      list: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/billing/credit_balance_transactions",
-        methodType: "list"
-      })
-    });
-  }
-});
-
-// node_modules/stripe/cjs/resources/Billing/CreditGrants.js
-var require_CreditGrants = __commonJS({
-  "node_modules/stripe/cjs/resources/Billing/CreditGrants.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.CreditGrants = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.CreditGrants = StripeResource_js_1.StripeResource.extend({
-      create: stripeMethod({ method: "POST", fullPath: "/v1/billing/credit_grants" }),
-      retrieve: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/billing/credit_grants/{id}"
-      }),
-      update: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/billing/credit_grants/{id}"
-      }),
-      list: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/billing/credit_grants",
-        methodType: "list"
-      }),
-      expire: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/billing/credit_grants/{id}/expire"
-      }),
-      voidGrant: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/billing/credit_grants/{id}/void"
       })
     });
   }
@@ -5115,115 +4204,6 @@ var require_EarlyFraudWarnings = __commonJS({
   }
 });
 
-// node_modules/stripe/cjs/resources/V2/Core/EventDestinations.js
-var require_EventDestinations = __commonJS({
-  "node_modules/stripe/cjs/resources/V2/Core/EventDestinations.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.EventDestinations = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.EventDestinations = StripeResource_js_1.StripeResource.extend({
-      create: stripeMethod({
-        method: "POST",
-        fullPath: "/v2/core/event_destinations"
-      }),
-      retrieve: stripeMethod({
-        method: "GET",
-        fullPath: "/v2/core/event_destinations/{id}"
-      }),
-      update: stripeMethod({
-        method: "POST",
-        fullPath: "/v2/core/event_destinations/{id}"
-      }),
-      list: stripeMethod({
-        method: "GET",
-        fullPath: "/v2/core/event_destinations",
-        methodType: "list"
-      }),
-      del: stripeMethod({
-        method: "DELETE",
-        fullPath: "/v2/core/event_destinations/{id}"
-      }),
-      disable: stripeMethod({
-        method: "POST",
-        fullPath: "/v2/core/event_destinations/{id}/disable"
-      }),
-      enable: stripeMethod({
-        method: "POST",
-        fullPath: "/v2/core/event_destinations/{id}/enable"
-      }),
-      ping: stripeMethod({
-        method: "POST",
-        fullPath: "/v2/core/event_destinations/{id}/ping"
-      })
-    });
-  }
-});
-
-// node_modules/stripe/cjs/resources/V2/Core/Events.js
-var require_Events = __commonJS({
-  "node_modules/stripe/cjs/resources/V2/Core/Events.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.Events = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.Events = StripeResource_js_1.StripeResource.extend({
-      retrieve(...args) {
-        const transformResponseData = (response) => {
-          return this.addFetchRelatedObjectIfNeeded(response);
-        };
-        return stripeMethod({
-          method: "GET",
-          fullPath: "/v2/core/events/{id}",
-          transformResponseData
-        }).apply(this, args);
-      },
-      list(...args) {
-        const transformResponseData = (response) => {
-          return Object.assign(Object.assign({}, response), { data: response.data.map(this.addFetchRelatedObjectIfNeeded.bind(this)) });
-        };
-        return stripeMethod({
-          method: "GET",
-          fullPath: "/v2/core/events",
-          methodType: "list",
-          transformResponseData
-        }).apply(this, args);
-      },
-      /**
-       * @private
-       *
-       * For internal use in stripe-node.
-       *
-       * @param pulledEvent The retrieved event object
-       * @returns The retrieved event object with a fetchRelatedObject method,
-       * if pulledEvent.related_object is valid (non-null and has a url)
-       */
-      addFetchRelatedObjectIfNeeded(pulledEvent) {
-        if (!pulledEvent.related_object || !pulledEvent.related_object.url) {
-          return pulledEvent;
-        }
-        return Object.assign(Object.assign({}, pulledEvent), { fetchRelatedObject: () => (
-          // call stripeMethod with 'this' resource to fetch
-          // the related object. 'this' is needed to construct
-          // and send the request, but the method spec controls
-          // the url endpoint and method, so it doesn't matter
-          // that 'this' is an Events resource object here
-          stripeMethod({
-            method: "GET",
-            fullPath: pulledEvent.related_object.url
-          }).apply(this, [
-            {
-              stripeContext: pulledEvent.context
-            }
-          ])
-        ) });
-      }
-    });
-  }
-});
-
 // node_modules/stripe/cjs/resources/Entitlements/Features.js
 var require_Features = __commonJS({
   "node_modules/stripe/cjs/resources/Entitlements/Features.js"(exports2) {
@@ -5276,10 +4256,6 @@ var require_FinancialAccounts = __commonJS({
         method: "GET",
         fullPath: "/v1/treasury/financial_accounts",
         methodType: "list"
-      }),
-      close: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/treasury/financial_accounts/{financial_account}/close"
       }),
       retrieveFeatures: stripeMethod({
         method: "GET",
@@ -5396,58 +4372,6 @@ var require_MeterEventAdjustments = __commonJS({
   }
 });
 
-// node_modules/stripe/cjs/resources/V2/Billing/MeterEventAdjustments.js
-var require_MeterEventAdjustments2 = __commonJS({
-  "node_modules/stripe/cjs/resources/V2/Billing/MeterEventAdjustments.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.MeterEventAdjustments = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.MeterEventAdjustments = StripeResource_js_1.StripeResource.extend({
-      create: stripeMethod({
-        method: "POST",
-        fullPath: "/v2/billing/meter_event_adjustments"
-      })
-    });
-  }
-});
-
-// node_modules/stripe/cjs/resources/V2/Billing/MeterEventSession.js
-var require_MeterEventSession = __commonJS({
-  "node_modules/stripe/cjs/resources/V2/Billing/MeterEventSession.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.MeterEventSession = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.MeterEventSession = StripeResource_js_1.StripeResource.extend({
-      create: stripeMethod({
-        method: "POST",
-        fullPath: "/v2/billing/meter_event_session"
-      })
-    });
-  }
-});
-
-// node_modules/stripe/cjs/resources/V2/Billing/MeterEventStream.js
-var require_MeterEventStream = __commonJS({
-  "node_modules/stripe/cjs/resources/V2/Billing/MeterEventStream.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.MeterEventStream = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.MeterEventStream = StripeResource_js_1.StripeResource.extend({
-      create: stripeMethod({
-        method: "POST",
-        fullPath: "/v2/billing/meter_event_stream",
-        host: "meter-events.stripe.com"
-      })
-    });
-  }
-});
-
 // node_modules/stripe/cjs/resources/Billing/MeterEvents.js
 var require_MeterEvents = __commonJS({
   "node_modules/stripe/cjs/resources/Billing/MeterEvents.js"(exports2) {
@@ -5458,20 +4382,6 @@ var require_MeterEvents = __commonJS({
     var stripeMethod = StripeResource_js_1.StripeResource.method;
     exports2.MeterEvents = StripeResource_js_1.StripeResource.extend({
       create: stripeMethod({ method: "POST", fullPath: "/v1/billing/meter_events" })
-    });
-  }
-});
-
-// node_modules/stripe/cjs/resources/V2/Billing/MeterEvents.js
-var require_MeterEvents2 = __commonJS({
-  "node_modules/stripe/cjs/resources/V2/Billing/MeterEvents.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.MeterEvents = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.MeterEvents = StripeResource_js_1.StripeResource.extend({
-      create: stripeMethod({ method: "POST", fullPath: "/v2/billing/meter_events" })
     });
   }
 });
@@ -5550,10 +4460,6 @@ var require_OutboundPayments = __commonJS({
     var StripeResource_js_1 = require_StripeResource();
     var stripeMethod = StripeResource_js_1.StripeResource.method;
     exports2.OutboundPayments = StripeResource_js_1.StripeResource.extend({
-      update: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/treasury/outbound_payments/{id}"
-      }),
       fail: stripeMethod({
         method: "POST",
         fullPath: "/v1/test_helpers/treasury/outbound_payments/{id}/fail"
@@ -5609,10 +4515,6 @@ var require_OutboundTransfers = __commonJS({
     var StripeResource_js_1 = require_StripeResource();
     var stripeMethod = StripeResource_js_1.StripeResource.method;
     exports2.OutboundTransfers = StripeResource_js_1.StripeResource.extend({
-      update: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/treasury/outbound_transfers/{outbound_transfer}"
-      }),
       fail: stripeMethod({
         method: "POST",
         fullPath: "/v1/test_helpers/treasury/outbound_transfers/{outbound_transfer}/fail"
@@ -5659,8 +4561,33 @@ var require_OutboundTransfers2 = __commonJS({
   }
 });
 
-// node_modules/stripe/cjs/resources/Issuing/PersonalizationDesigns.js
+// node_modules/stripe/cjs/resources/TestHelpers/Issuing/PersonalizationDesigns.js
 var require_PersonalizationDesigns = __commonJS({
+  "node_modules/stripe/cjs/resources/TestHelpers/Issuing/PersonalizationDesigns.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.PersonalizationDesigns = void 0;
+    var StripeResource_js_1 = require_StripeResource();
+    var stripeMethod = StripeResource_js_1.StripeResource.method;
+    exports2.PersonalizationDesigns = StripeResource_js_1.StripeResource.extend({
+      activate: stripeMethod({
+        method: "POST",
+        fullPath: "/v1/test_helpers/issuing/personalization_designs/{personalization_design}/activate"
+      }),
+      deactivate: stripeMethod({
+        method: "POST",
+        fullPath: "/v1/test_helpers/issuing/personalization_designs/{personalization_design}/deactivate"
+      }),
+      reject: stripeMethod({
+        method: "POST",
+        fullPath: "/v1/test_helpers/issuing/personalization_designs/{personalization_design}/reject"
+      })
+    });
+  }
+});
+
+// node_modules/stripe/cjs/resources/Issuing/PersonalizationDesigns.js
+var require_PersonalizationDesigns2 = __commonJS({
   "node_modules/stripe/cjs/resources/Issuing/PersonalizationDesigns.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -5684,31 +4611,6 @@ var require_PersonalizationDesigns = __commonJS({
         method: "GET",
         fullPath: "/v1/issuing/personalization_designs",
         methodType: "list"
-      })
-    });
-  }
-});
-
-// node_modules/stripe/cjs/resources/TestHelpers/Issuing/PersonalizationDesigns.js
-var require_PersonalizationDesigns2 = __commonJS({
-  "node_modules/stripe/cjs/resources/TestHelpers/Issuing/PersonalizationDesigns.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.PersonalizationDesigns = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.PersonalizationDesigns = StripeResource_js_1.StripeResource.extend({
-      activate: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/issuing/personalization_designs/{personalization_design}/activate"
-      }),
-      deactivate: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/issuing/personalization_designs/{personalization_design}/deactivate"
-      }),
-      reject: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/issuing/personalization_designs/{personalization_design}/reject"
       })
     });
   }
@@ -5758,8 +4660,25 @@ var require_Products = __commonJS({
   }
 });
 
-// node_modules/stripe/cjs/resources/Terminal/Readers.js
+// node_modules/stripe/cjs/resources/TestHelpers/Terminal/Readers.js
 var require_Readers = __commonJS({
+  "node_modules/stripe/cjs/resources/TestHelpers/Terminal/Readers.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.Readers = void 0;
+    var StripeResource_js_1 = require_StripeResource();
+    var stripeMethod = StripeResource_js_1.StripeResource.method;
+    exports2.Readers = StripeResource_js_1.StripeResource.extend({
+      presentPaymentMethod: stripeMethod({
+        method: "POST",
+        fullPath: "/v1/test_helpers/terminal/readers/{reader}/present_payment_method"
+      })
+    });
+  }
+});
+
+// node_modules/stripe/cjs/resources/Terminal/Readers.js
+var require_Readers2 = __commonJS({
   "node_modules/stripe/cjs/resources/Terminal/Readers.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -5789,18 +4708,6 @@ var require_Readers = __commonJS({
         method: "POST",
         fullPath: "/v1/terminal/readers/{reader}/cancel_action"
       }),
-      collectInputs: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/terminal/readers/{reader}/collect_inputs"
-      }),
-      collectPaymentMethod: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/terminal/readers/{reader}/collect_payment_method"
-      }),
-      confirmPaymentIntent: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/terminal/readers/{reader}/confirm_payment_intent"
-      }),
       processPaymentIntent: stripeMethod({
         method: "POST",
         fullPath: "/v1/terminal/readers/{reader}/process_payment_intent"
@@ -5816,31 +4723,6 @@ var require_Readers = __commonJS({
       setReaderDisplay: stripeMethod({
         method: "POST",
         fullPath: "/v1/terminal/readers/{reader}/set_reader_display"
-      })
-    });
-  }
-});
-
-// node_modules/stripe/cjs/resources/TestHelpers/Terminal/Readers.js
-var require_Readers2 = __commonJS({
-  "node_modules/stripe/cjs/resources/TestHelpers/Terminal/Readers.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.Readers = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.Readers = StripeResource_js_1.StripeResource.extend({
-      presentPaymentMethod: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/terminal/readers/{reader}/present_payment_method"
-      }),
-      succeedInputCollection: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/terminal/readers/{reader}/succeed_input_collection"
-      }),
-      timeoutInputCollection: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/terminal/readers/{reader}/timeout_input_collection"
       })
     });
   }
@@ -6113,10 +4995,6 @@ var require_Sessions2 = __commonJS({
         method: "GET",
         fullPath: "/v1/checkout/sessions/{session}"
       }),
-      update: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/checkout/sessions/{session}"
-      }),
       list: stripeMethod({
         method: "GET",
         fullPath: "/v1/checkout/sessions",
@@ -6275,8 +5153,33 @@ var require_TransactionEntries = __commonJS({
   }
 });
 
-// node_modules/stripe/cjs/resources/FinancialConnections/Transactions.js
+// node_modules/stripe/cjs/resources/TestHelpers/Issuing/Transactions.js
 var require_Transactions = __commonJS({
+  "node_modules/stripe/cjs/resources/TestHelpers/Issuing/Transactions.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.Transactions = void 0;
+    var StripeResource_js_1 = require_StripeResource();
+    var stripeMethod = StripeResource_js_1.StripeResource.method;
+    exports2.Transactions = StripeResource_js_1.StripeResource.extend({
+      createForceCapture: stripeMethod({
+        method: "POST",
+        fullPath: "/v1/test_helpers/issuing/transactions/create_force_capture"
+      }),
+      createUnlinkedRefund: stripeMethod({
+        method: "POST",
+        fullPath: "/v1/test_helpers/issuing/transactions/create_unlinked_refund"
+      }),
+      refund: stripeMethod({
+        method: "POST",
+        fullPath: "/v1/test_helpers/issuing/transactions/{transaction}/refund"
+      })
+    });
+  }
+});
+
+// node_modules/stripe/cjs/resources/FinancialConnections/Transactions.js
+var require_Transactions2 = __commonJS({
   "node_modules/stripe/cjs/resources/FinancialConnections/Transactions.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -6298,7 +5201,7 @@ var require_Transactions = __commonJS({
 });
 
 // node_modules/stripe/cjs/resources/Issuing/Transactions.js
-var require_Transactions2 = __commonJS({
+var require_Transactions3 = __commonJS({
   "node_modules/stripe/cjs/resources/Issuing/Transactions.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -6324,7 +5227,7 @@ var require_Transactions2 = __commonJS({
 });
 
 // node_modules/stripe/cjs/resources/Tax/Transactions.js
-var require_Transactions3 = __commonJS({
+var require_Transactions4 = __commonJS({
   "node_modules/stripe/cjs/resources/Tax/Transactions.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -6348,31 +5251,6 @@ var require_Transactions3 = __commonJS({
         method: "GET",
         fullPath: "/v1/tax/transactions/{transaction}/line_items",
         methodType: "list"
-      })
-    });
-  }
-});
-
-// node_modules/stripe/cjs/resources/TestHelpers/Issuing/Transactions.js
-var require_Transactions4 = __commonJS({
-  "node_modules/stripe/cjs/resources/TestHelpers/Issuing/Transactions.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.Transactions = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.Transactions = StripeResource_js_1.StripeResource.extend({
-      createForceCapture: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/issuing/transactions/create_force_capture"
-      }),
-      createUnlinkedRefund: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/issuing/transactions/create_unlinked_refund"
-      }),
-      refund: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/test_helpers/issuing/transactions/{transaction}/refund"
       })
     });
   }
@@ -6730,21 +5608,6 @@ var require_Balance = __commonJS({
   }
 });
 
-// node_modules/stripe/cjs/resources/BalanceSettings.js
-var require_BalanceSettings = __commonJS({
-  "node_modules/stripe/cjs/resources/BalanceSettings.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.BalanceSettings = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.BalanceSettings = StripeResource_js_1.StripeResource.extend({
-      retrieve: stripeMethod({ method: "GET", fullPath: "/v1/balance_settings" }),
-      update: stripeMethod({ method: "POST", fullPath: "/v1/balance_settings" })
-    });
-  }
-});
-
 // node_modules/stripe/cjs/resources/BalanceTransactions.js
 var require_BalanceTransactions = __commonJS({
   "node_modules/stripe/cjs/resources/BalanceTransactions.js"(exports2) {
@@ -7076,7 +5939,7 @@ var require_EphemeralKeys = __commonJS({
 });
 
 // node_modules/stripe/cjs/resources/Events.js
-var require_Events2 = __commonJS({
+var require_Events = __commonJS({
   "node_modules/stripe/cjs/resources/Events.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -7163,9 +6026,6 @@ var require_multipart = __commonJS({
       }
       const flattenedData = (0, utils_js_1.flattenAndStringify)(data);
       for (const k in flattenedData) {
-        if (!Object.prototype.hasOwnProperty.call(flattenedData, k)) {
-          continue;
-        }
         const v = flattenedData[k];
         push(`--${segno}`);
         if (Object.prototype.hasOwnProperty.call(v, "data")) {
@@ -7186,7 +6046,7 @@ var require_multipart = __commonJS({
     function multipartRequestDataProcessor(method, data, headers, callback) {
       data = data || {};
       if (method !== "POST") {
-        return callback(null, (0, utils_js_1.queryStringifyRequestData)(data));
+        return callback(null, (0, utils_js_1.stringifyRequestData)(data));
       }
       this._stripe._platformFunctions.tryBufferData(data).then((bufferedData) => {
         const buffer = multipartDataGenerator(method, bufferedData, headers);
@@ -7257,58 +6117,6 @@ var require_InvoiceItems = __commonJS({
   }
 });
 
-// node_modules/stripe/cjs/resources/InvoicePayments.js
-var require_InvoicePayments = __commonJS({
-  "node_modules/stripe/cjs/resources/InvoicePayments.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.InvoicePayments = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.InvoicePayments = StripeResource_js_1.StripeResource.extend({
-      retrieve: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/invoice_payments/{invoice_payment}"
-      }),
-      list: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/invoice_payments",
-        methodType: "list"
-      })
-    });
-  }
-});
-
-// node_modules/stripe/cjs/resources/InvoiceRenderingTemplates.js
-var require_InvoiceRenderingTemplates = __commonJS({
-  "node_modules/stripe/cjs/resources/InvoiceRenderingTemplates.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.InvoiceRenderingTemplates = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.InvoiceRenderingTemplates = StripeResource_js_1.StripeResource.extend({
-      retrieve: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/invoice_rendering_templates/{template}"
-      }),
-      list: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/invoice_rendering_templates",
-        methodType: "list"
-      }),
-      archive: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/invoice_rendering_templates/{template}/archive"
-      }),
-      unarchive: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/invoice_rendering_templates/{template}/unarchive"
-      })
-    });
-  }
-});
-
 // node_modules/stripe/cjs/resources/Invoices.js
 var require_Invoices = __commonJS({
   "node_modules/stripe/cjs/resources/Invoices.js"(exports2) {
@@ -7327,18 +6135,6 @@ var require_Invoices = __commonJS({
         methodType: "list"
       }),
       del: stripeMethod({ method: "DELETE", fullPath: "/v1/invoices/{invoice}" }),
-      addLines: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/invoices/{invoice}/add_lines"
-      }),
-      attachPayment: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/invoices/{invoice}/attach_payment"
-      }),
-      createPreview: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/invoices/create_preview"
-      }),
       finalizeInvoice: stripeMethod({
         method: "POST",
         fullPath: "/v1/invoices/{invoice}/finalize"
@@ -7348,14 +6144,19 @@ var require_Invoices = __commonJS({
         fullPath: "/v1/invoices/{invoice}/lines",
         methodType: "list"
       }),
+      listUpcomingLines: stripeMethod({
+        method: "GET",
+        fullPath: "/v1/invoices/upcoming/lines",
+        methodType: "list"
+      }),
       markUncollectible: stripeMethod({
         method: "POST",
         fullPath: "/v1/invoices/{invoice}/mark_uncollectible"
       }),
       pay: stripeMethod({ method: "POST", fullPath: "/v1/invoices/{invoice}/pay" }),
-      removeLines: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/invoices/{invoice}/remove_lines"
+      retrieveUpcoming: stripeMethod({
+        method: "GET",
+        fullPath: "/v1/invoices/upcoming"
       }),
       search: stripeMethod({
         method: "GET",
@@ -7365,10 +6166,6 @@ var require_Invoices = __commonJS({
       sendInvoice: stripeMethod({
         method: "POST",
         fullPath: "/v1/invoices/{invoice}/send"
-      }),
-      updateLines: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/invoices/{invoice}/update_lines"
       }),
       updateLineItem: stripeMethod({
         method: "POST",
@@ -7424,7 +6221,7 @@ var require_OAuth = __commonJS({
         if (!params.scope) {
           params.scope = "read_write";
         }
-        return `https://${oAuthHost}/${path}?${(0, utils_js_1.queryStringifyRequestData)(params)}`;
+        return `https://${oAuthHost}/${path}?${(0, utils_js_1.stringifyRequestData)(params)}`;
       },
       token: stripeMethod({
         method: "POST",
@@ -7441,28 +6238,6 @@ var require_OAuth = __commonJS({
           host: oAuthHost
         }).apply(this, [spec, ...args]);
       }
-    });
-  }
-});
-
-// node_modules/stripe/cjs/resources/PaymentAttemptRecords.js
-var require_PaymentAttemptRecords = __commonJS({
-  "node_modules/stripe/cjs/resources/PaymentAttemptRecords.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.PaymentAttemptRecords = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.PaymentAttemptRecords = StripeResource_js_1.StripeResource.extend({
-      retrieve: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/payment_attempt_records/{id}"
-      }),
-      list: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/payment_attempt_records",
-        methodType: "list"
-      })
     });
   }
 });
@@ -7509,11 +6284,6 @@ var require_PaymentIntents = __commonJS({
       incrementAuthorization: stripeMethod({
         method: "POST",
         fullPath: "/v1/payment_intents/{intent}/increment_authorization"
-      }),
-      listAmountDetailsLineItems: stripeMethod({
-        method: "GET",
-        fullPath: "/v1/payment_intents/{intent}/amount_details_line_items",
-        methodType: "list"
       }),
       search: stripeMethod({
         method: "GET",
@@ -7654,48 +6424,6 @@ var require_PaymentMethods = __commonJS({
       detach: stripeMethod({
         method: "POST",
         fullPath: "/v1/payment_methods/{payment_method}/detach"
-      })
-    });
-  }
-});
-
-// node_modules/stripe/cjs/resources/PaymentRecords.js
-var require_PaymentRecords = __commonJS({
-  "node_modules/stripe/cjs/resources/PaymentRecords.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.PaymentRecords = void 0;
-    var StripeResource_js_1 = require_StripeResource();
-    var stripeMethod = StripeResource_js_1.StripeResource.method;
-    exports2.PaymentRecords = StripeResource_js_1.StripeResource.extend({
-      retrieve: stripeMethod({ method: "GET", fullPath: "/v1/payment_records/{id}" }),
-      reportPayment: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/payment_records/report_payment"
-      }),
-      reportPaymentAttempt: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/payment_records/{id}/report_payment_attempt"
-      }),
-      reportPaymentAttemptCanceled: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/payment_records/{id}/report_payment_attempt_canceled"
-      }),
-      reportPaymentAttemptFailed: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/payment_records/{id}/report_payment_attempt_failed"
-      }),
-      reportPaymentAttemptGuaranteed: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/payment_records/{id}/report_payment_attempt_guaranteed"
-      }),
-      reportPaymentAttemptInformational: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/payment_records/{id}/report_payment_attempt_informational"
-      }),
-      reportRefund: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/payment_records/{id}/report_refund"
       })
     });
   }
@@ -8075,6 +6803,15 @@ var require_SubscriptionItems = __commonJS({
       del: stripeMethod({
         method: "DELETE",
         fullPath: "/v1/subscription_items/{item}"
+      }),
+      createUsageRecord: stripeMethod({
+        method: "POST",
+        fullPath: "/v1/subscription_items/{subscription_item}/usage_records"
+      }),
+      listUsageRecordSummaries: stripeMethod({
+        method: "GET",
+        fullPath: "/v1/subscription_items/{subscription_item}/usage_record_summaries",
+        methodType: "list"
       })
     });
   }
@@ -8148,10 +6885,6 @@ var require_Subscriptions = __commonJS({
       deleteDiscount: stripeMethod({
         method: "DELETE",
         fullPath: "/v1/subscriptions/{subscription_exposed_id}/discount"
-      }),
-      migrate: stripeMethod({
-        method: "POST",
-        fullPath: "/v1/subscriptions/{subscription}/migrate"
       }),
       resume: stripeMethod({
         method: "POST",
@@ -8338,12 +7071,11 @@ var require_resources = __commonJS({
   "node_modules/stripe/cjs/resources.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.Subscriptions = exports2.SubscriptionSchedules = exports2.SubscriptionItems = exports2.Sources = exports2.ShippingRates = exports2.SetupIntents = exports2.SetupAttempts = exports2.Reviews = exports2.Refunds = exports2.Quotes = exports2.PromotionCodes = exports2.Products = exports2.Prices = exports2.Plans = exports2.Payouts = exports2.PaymentRecords = exports2.PaymentMethods = exports2.PaymentMethodDomains = exports2.PaymentMethodConfigurations = exports2.PaymentLinks = exports2.PaymentIntents = exports2.PaymentAttemptRecords = exports2.OAuth = exports2.Mandates = exports2.Invoices = exports2.InvoiceRenderingTemplates = exports2.InvoicePayments = exports2.InvoiceItems = exports2.Files = exports2.FileLinks = exports2.ExchangeRates = exports2.Events = exports2.EphemeralKeys = exports2.Disputes = exports2.Customers = exports2.CustomerSessions = exports2.CreditNotes = exports2.Coupons = exports2.CountrySpecs = exports2.ConfirmationTokens = exports2.Charges = exports2.BalanceTransactions = exports2.BalanceSettings = exports2.Balance = exports2.ApplicationFees = exports2.ApplePayDomains = exports2.Accounts = exports2.AccountSessions = exports2.AccountLinks = exports2.Account = void 0;
-    exports2.V2 = exports2.Treasury = exports2.TestHelpers = exports2.Terminal = exports2.Tax = exports2.Sigma = exports2.Reporting = exports2.Radar = exports2.Issuing = exports2.Identity = exports2.Forwarding = exports2.FinancialConnections = exports2.Entitlements = exports2.Climate = exports2.Checkout = exports2.BillingPortal = exports2.Billing = exports2.Apps = exports2.WebhookEndpoints = exports2.Transfers = exports2.Topups = exports2.Tokens = exports2.TaxRates = exports2.TaxIds = exports2.TaxCodes = void 0;
+    exports2.Topups = exports2.Tokens = exports2.TaxRates = exports2.TaxIds = exports2.TaxCodes = exports2.Subscriptions = exports2.SubscriptionSchedules = exports2.SubscriptionItems = exports2.Sources = exports2.ShippingRates = exports2.SetupIntents = exports2.SetupAttempts = exports2.Reviews = exports2.Refunds = exports2.Quotes = exports2.PromotionCodes = exports2.Products = exports2.Prices = exports2.Plans = exports2.Payouts = exports2.PaymentMethods = exports2.PaymentMethodDomains = exports2.PaymentMethodConfigurations = exports2.PaymentLinks = exports2.PaymentIntents = exports2.OAuth = exports2.Mandates = exports2.Invoices = exports2.InvoiceItems = exports2.Files = exports2.FileLinks = exports2.ExchangeRates = exports2.Events = exports2.EphemeralKeys = exports2.Disputes = exports2.Customers = exports2.CustomerSessions = exports2.CreditNotes = exports2.Coupons = exports2.CountrySpecs = exports2.ConfirmationTokens = exports2.Charges = exports2.BalanceTransactions = exports2.Balance = exports2.ApplicationFees = exports2.ApplePayDomains = exports2.Accounts = exports2.AccountSessions = exports2.AccountLinks = exports2.Account = void 0;
+    exports2.Treasury = exports2.TestHelpers = exports2.Terminal = exports2.Tax = exports2.Sigma = exports2.Reporting = exports2.Radar = exports2.Issuing = exports2.Identity = exports2.Forwarding = exports2.FinancialConnections = exports2.Entitlements = exports2.Climate = exports2.Checkout = exports2.BillingPortal = exports2.Billing = exports2.Apps = exports2.WebhookEndpoints = exports2.Transfers = void 0;
     var ResourceNamespace_js_1 = require_ResourceNamespace();
     var Accounts_js_1 = require_Accounts();
     var ActiveEntitlements_js_1 = require_ActiveEntitlements();
-    var Alerts_js_1 = require_Alerts();
     var Authorizations_js_1 = require_Authorizations();
     var Authorizations_js_2 = require_Authorizations2();
     var Calculations_js_1 = require_Calculations();
@@ -8354,27 +7086,18 @@ var require_resources = __commonJS({
     var Configurations_js_2 = require_Configurations2();
     var ConfirmationTokens_js_1 = require_ConfirmationTokens();
     var ConnectionTokens_js_1 = require_ConnectionTokens();
-    var CreditBalanceSummary_js_1 = require_CreditBalanceSummary();
-    var CreditBalanceTransactions_js_1 = require_CreditBalanceTransactions();
-    var CreditGrants_js_1 = require_CreditGrants();
     var CreditReversals_js_1 = require_CreditReversals();
     var Customers_js_1 = require_Customers();
     var DebitReversals_js_1 = require_DebitReversals();
     var Disputes_js_1 = require_Disputes();
     var EarlyFraudWarnings_js_1 = require_EarlyFraudWarnings();
-    var EventDestinations_js_1 = require_EventDestinations();
-    var Events_js_1 = require_Events();
     var Features_js_1 = require_Features();
     var FinancialAccounts_js_1 = require_FinancialAccounts();
     var InboundTransfers_js_1 = require_InboundTransfers();
     var InboundTransfers_js_2 = require_InboundTransfers2();
     var Locations_js_1 = require_Locations();
     var MeterEventAdjustments_js_1 = require_MeterEventAdjustments();
-    var MeterEventAdjustments_js_2 = require_MeterEventAdjustments2();
-    var MeterEventSession_js_1 = require_MeterEventSession();
-    var MeterEventStream_js_1 = require_MeterEventStream();
     var MeterEvents_js_1 = require_MeterEvents();
-    var MeterEvents_js_2 = require_MeterEvents2();
     var Meters_js_1 = require_Meters();
     var Orders_js_1 = require_Orders();
     var OutboundPayments_js_1 = require_OutboundPayments();
@@ -8443,10 +7166,6 @@ var require_resources = __commonJS({
     Object.defineProperty(exports2, "Balance", { enumerable: true, get: function() {
       return Balance_js_1.Balance;
     } });
-    var BalanceSettings_js_1 = require_BalanceSettings();
-    Object.defineProperty(exports2, "BalanceSettings", { enumerable: true, get: function() {
-      return BalanceSettings_js_1.BalanceSettings;
-    } });
     var BalanceTransactions_js_1 = require_BalanceTransactions();
     Object.defineProperty(exports2, "BalanceTransactions", { enumerable: true, get: function() {
       return BalanceTransactions_js_1.BalanceTransactions;
@@ -8487,9 +7206,9 @@ var require_resources = __commonJS({
     Object.defineProperty(exports2, "EphemeralKeys", { enumerable: true, get: function() {
       return EphemeralKeys_js_1.EphemeralKeys;
     } });
-    var Events_js_2 = require_Events2();
+    var Events_js_1 = require_Events();
     Object.defineProperty(exports2, "Events", { enumerable: true, get: function() {
-      return Events_js_2.Events;
+      return Events_js_1.Events;
     } });
     var ExchangeRates_js_1 = require_ExchangeRates();
     Object.defineProperty(exports2, "ExchangeRates", { enumerable: true, get: function() {
@@ -8507,14 +7226,6 @@ var require_resources = __commonJS({
     Object.defineProperty(exports2, "InvoiceItems", { enumerable: true, get: function() {
       return InvoiceItems_js_1.InvoiceItems;
     } });
-    var InvoicePayments_js_1 = require_InvoicePayments();
-    Object.defineProperty(exports2, "InvoicePayments", { enumerable: true, get: function() {
-      return InvoicePayments_js_1.InvoicePayments;
-    } });
-    var InvoiceRenderingTemplates_js_1 = require_InvoiceRenderingTemplates();
-    Object.defineProperty(exports2, "InvoiceRenderingTemplates", { enumerable: true, get: function() {
-      return InvoiceRenderingTemplates_js_1.InvoiceRenderingTemplates;
-    } });
     var Invoices_js_1 = require_Invoices();
     Object.defineProperty(exports2, "Invoices", { enumerable: true, get: function() {
       return Invoices_js_1.Invoices;
@@ -8526,10 +7237,6 @@ var require_resources = __commonJS({
     var OAuth_js_1 = require_OAuth();
     Object.defineProperty(exports2, "OAuth", { enumerable: true, get: function() {
       return OAuth_js_1.OAuth;
-    } });
-    var PaymentAttemptRecords_js_1 = require_PaymentAttemptRecords();
-    Object.defineProperty(exports2, "PaymentAttemptRecords", { enumerable: true, get: function() {
-      return PaymentAttemptRecords_js_1.PaymentAttemptRecords;
     } });
     var PaymentIntents_js_1 = require_PaymentIntents();
     Object.defineProperty(exports2, "PaymentIntents", { enumerable: true, get: function() {
@@ -8550,10 +7257,6 @@ var require_resources = __commonJS({
     var PaymentMethods_js_1 = require_PaymentMethods();
     Object.defineProperty(exports2, "PaymentMethods", { enumerable: true, get: function() {
       return PaymentMethods_js_1.PaymentMethods;
-    } });
-    var PaymentRecords_js_1 = require_PaymentRecords();
-    Object.defineProperty(exports2, "PaymentRecords", { enumerable: true, get: function() {
-      return PaymentRecords_js_1.PaymentRecords;
     } });
     var Payouts_js_1 = require_Payouts();
     Object.defineProperty(exports2, "Payouts", { enumerable: true, get: function() {
@@ -8645,10 +7348,6 @@ var require_resources = __commonJS({
     } });
     exports2.Apps = (0, ResourceNamespace_js_1.resourceNamespace)("apps", { Secrets: Secrets_js_1.Secrets });
     exports2.Billing = (0, ResourceNamespace_js_1.resourceNamespace)("billing", {
-      Alerts: Alerts_js_1.Alerts,
-      CreditBalanceSummary: CreditBalanceSummary_js_1.CreditBalanceSummary,
-      CreditBalanceTransactions: CreditBalanceTransactions_js_1.CreditBalanceTransactions,
-      CreditGrants: CreditGrants_js_1.CreditGrants,
       MeterEventAdjustments: MeterEventAdjustments_js_1.MeterEventAdjustments,
       MeterEvents: MeterEvents_js_1.MeterEvents,
       Meters: Meters_js_1.Meters
@@ -8672,7 +7371,7 @@ var require_resources = __commonJS({
     exports2.FinancialConnections = (0, ResourceNamespace_js_1.resourceNamespace)("financialConnections", {
       Accounts: Accounts_js_1.Accounts,
       Sessions: Sessions_js_3.Sessions,
-      Transactions: Transactions_js_1.Transactions
+      Transactions: Transactions_js_2.Transactions
     });
     exports2.Forwarding = (0, ResourceNamespace_js_1.resourceNamespace)("forwarding", {
       Requests: Requests_js_1.Requests
@@ -8682,14 +7381,14 @@ var require_resources = __commonJS({
       VerificationSessions: VerificationSessions_js_1.VerificationSessions
     });
     exports2.Issuing = (0, ResourceNamespace_js_1.resourceNamespace)("issuing", {
-      Authorizations: Authorizations_js_1.Authorizations,
+      Authorizations: Authorizations_js_2.Authorizations,
       Cardholders: Cardholders_js_1.Cardholders,
-      Cards: Cards_js_1.Cards,
+      Cards: Cards_js_2.Cards,
       Disputes: Disputes_js_1.Disputes,
-      PersonalizationDesigns: PersonalizationDesigns_js_1.PersonalizationDesigns,
+      PersonalizationDesigns: PersonalizationDesigns_js_2.PersonalizationDesigns,
       PhysicalBundles: PhysicalBundles_js_1.PhysicalBundles,
       Tokens: Tokens_js_1.Tokens,
-      Transactions: Transactions_js_2.Transactions
+      Transactions: Transactions_js_3.Transactions
     });
     exports2.Radar = (0, ResourceNamespace_js_1.resourceNamespace)("radar", {
       EarlyFraudWarnings: EarlyFraudWarnings_js_1.EarlyFraudWarnings,
@@ -8707,13 +7406,13 @@ var require_resources = __commonJS({
       Calculations: Calculations_js_1.Calculations,
       Registrations: Registrations_js_1.Registrations,
       Settings: Settings_js_1.Settings,
-      Transactions: Transactions_js_3.Transactions
+      Transactions: Transactions_js_4.Transactions
     });
     exports2.Terminal = (0, ResourceNamespace_js_1.resourceNamespace)("terminal", {
       Configurations: Configurations_js_2.Configurations,
       ConnectionTokens: ConnectionTokens_js_1.ConnectionTokens,
       Locations: Locations_js_1.Locations,
-      Readers: Readers_js_1.Readers
+      Readers: Readers_js_2.Readers
     });
     exports2.TestHelpers = (0, ResourceNamespace_js_1.resourceNamespace)("testHelpers", {
       ConfirmationTokens: ConfirmationTokens_js_1.ConfirmationTokens,
@@ -8721,13 +7420,13 @@ var require_resources = __commonJS({
       Refunds: Refunds_js_1.Refunds,
       TestClocks: TestClocks_js_1.TestClocks,
       Issuing: (0, ResourceNamespace_js_1.resourceNamespace)("issuing", {
-        Authorizations: Authorizations_js_2.Authorizations,
-        Cards: Cards_js_2.Cards,
-        PersonalizationDesigns: PersonalizationDesigns_js_2.PersonalizationDesigns,
-        Transactions: Transactions_js_4.Transactions
+        Authorizations: Authorizations_js_1.Authorizations,
+        Cards: Cards_js_1.Cards,
+        PersonalizationDesigns: PersonalizationDesigns_js_1.PersonalizationDesigns,
+        Transactions: Transactions_js_1.Transactions
       }),
       Terminal: (0, ResourceNamespace_js_1.resourceNamespace)("terminal", {
-        Readers: Readers_js_2.Readers
+        Readers: Readers_js_1.Readers
       }),
       Treasury: (0, ResourceNamespace_js_1.resourceNamespace)("treasury", {
         InboundTransfers: InboundTransfers_js_1.InboundTransfers,
@@ -8749,18 +7448,469 @@ var require_resources = __commonJS({
       TransactionEntries: TransactionEntries_js_1.TransactionEntries,
       Transactions: Transactions_js_5.Transactions
     });
-    exports2.V2 = (0, ResourceNamespace_js_1.resourceNamespace)("v2", {
-      Billing: (0, ResourceNamespace_js_1.resourceNamespace)("billing", {
-        MeterEventAdjustments: MeterEventAdjustments_js_2.MeterEventAdjustments,
-        MeterEventSession: MeterEventSession_js_1.MeterEventSession,
-        MeterEventStream: MeterEventStream_js_1.MeterEventStream,
-        MeterEvents: MeterEvents_js_2.MeterEvents
-      }),
-      Core: (0, ResourceNamespace_js_1.resourceNamespace)("core", {
-        EventDestinations: EventDestinations_js_1.EventDestinations,
-        Events: Events_js_1.Events
-      })
-    });
+  }
+});
+
+// node_modules/stripe/cjs/RequestSender.js
+var require_RequestSender = __commonJS({
+  "node_modules/stripe/cjs/RequestSender.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.RequestSender = void 0;
+    var Error_js_1 = require_Error();
+    var utils_js_1 = require_utils2();
+    var HttpClient_js_1 = require_HttpClient();
+    var MAX_RETRY_AFTER_WAIT = 60;
+    var RequestSender = class _RequestSender {
+      constructor(stripe2, maxBufferedRequestMetric) {
+        this._stripe = stripe2;
+        this._maxBufferedRequestMetric = maxBufferedRequestMetric;
+      }
+      _addHeadersDirectlyToObject(obj, headers) {
+        obj.requestId = headers["request-id"];
+        obj.stripeAccount = obj.stripeAccount || headers["stripe-account"];
+        obj.apiVersion = obj.apiVersion || headers["stripe-version"];
+        obj.idempotencyKey = obj.idempotencyKey || headers["idempotency-key"];
+      }
+      _makeResponseEvent(requestEvent, statusCode, headers) {
+        const requestEndTime = Date.now();
+        const requestDurationMs = requestEndTime - requestEvent.request_start_time;
+        return (0, utils_js_1.removeNullish)({
+          api_version: headers["stripe-version"],
+          account: headers["stripe-account"],
+          idempotency_key: headers["idempotency-key"],
+          method: requestEvent.method,
+          path: requestEvent.path,
+          status: statusCode,
+          request_id: this._getRequestId(headers),
+          elapsed: requestDurationMs,
+          request_start_time: requestEvent.request_start_time,
+          request_end_time: requestEndTime
+        });
+      }
+      _getRequestId(headers) {
+        return headers["request-id"];
+      }
+      /**
+       * Used by methods with spec.streaming === true. For these methods, we do not
+       * buffer successful responses into memory or do parse them into stripe
+       * objects, we delegate that all of that to the user and pass back the raw
+       * http.Response object to the callback.
+       *
+       * (Unsuccessful responses shouldn't make it here, they should
+       * still be buffered/parsed and handled by _jsonResponseHandler -- see
+       * makeRequest)
+       */
+      _streamingResponseHandler(requestEvent, usage, callback) {
+        return (res) => {
+          const headers = res.getHeaders();
+          const streamCompleteCallback = () => {
+            const responseEvent = this._makeResponseEvent(requestEvent, res.getStatusCode(), headers);
+            this._stripe._emitter.emit("response", responseEvent);
+            this._recordRequestMetrics(this._getRequestId(headers), responseEvent.elapsed, usage);
+          };
+          const stream = res.toStream(streamCompleteCallback);
+          this._addHeadersDirectlyToObject(stream, headers);
+          return callback(null, stream);
+        };
+      }
+      /**
+       * Default handler for Stripe responses. Buffers the response into memory,
+       * parses the JSON and returns it (i.e. passes it to the callback) if there
+       * is no "error" field. Otherwise constructs/passes an appropriate Error.
+       */
+      _jsonResponseHandler(requestEvent, usage, callback) {
+        return (res) => {
+          const headers = res.getHeaders();
+          const requestId = this._getRequestId(headers);
+          const statusCode = res.getStatusCode();
+          const responseEvent = this._makeResponseEvent(requestEvent, statusCode, headers);
+          this._stripe._emitter.emit("response", responseEvent);
+          res.toJSON().then((jsonResponse) => {
+            if (jsonResponse.error) {
+              let err;
+              if (typeof jsonResponse.error === "string") {
+                jsonResponse.error = {
+                  type: jsonResponse.error,
+                  message: jsonResponse.error_description
+                };
+              }
+              jsonResponse.error.headers = headers;
+              jsonResponse.error.statusCode = statusCode;
+              jsonResponse.error.requestId = requestId;
+              if (statusCode === 401) {
+                err = new Error_js_1.StripeAuthenticationError(jsonResponse.error);
+              } else if (statusCode === 403) {
+                err = new Error_js_1.StripePermissionError(jsonResponse.error);
+              } else if (statusCode === 429) {
+                err = new Error_js_1.StripeRateLimitError(jsonResponse.error);
+              } else {
+                err = Error_js_1.StripeError.generate(jsonResponse.error);
+              }
+              throw err;
+            }
+            return jsonResponse;
+          }, (e) => {
+            throw new Error_js_1.StripeAPIError({
+              message: "Invalid JSON received from the Stripe API",
+              exception: e,
+              requestId: headers["request-id"]
+            });
+          }).then((jsonResponse) => {
+            this._recordRequestMetrics(requestId, responseEvent.elapsed, usage);
+            const rawResponse = res.getRawResponse();
+            this._addHeadersDirectlyToObject(rawResponse, headers);
+            Object.defineProperty(jsonResponse, "lastResponse", {
+              enumerable: false,
+              writable: false,
+              value: rawResponse
+            });
+            callback(null, jsonResponse);
+          }, (e) => callback(e, null));
+        };
+      }
+      static _generateConnectionErrorMessage(requestRetries) {
+        return `An error occurred with our connection to Stripe.${requestRetries > 0 ? ` Request was retried ${requestRetries} times.` : ""}`;
+      }
+      // For more on when and how to retry API requests, see https://stripe.com/docs/error-handling#safely-retrying-requests-with-idempotency
+      static _shouldRetry(res, numRetries, maxRetries, error) {
+        if (error && numRetries === 0 && HttpClient_js_1.HttpClient.CONNECTION_CLOSED_ERROR_CODES.includes(error.code)) {
+          return true;
+        }
+        if (numRetries >= maxRetries) {
+          return false;
+        }
+        if (!res) {
+          return true;
+        }
+        if (res.getHeaders()["stripe-should-retry"] === "false") {
+          return false;
+        }
+        if (res.getHeaders()["stripe-should-retry"] === "true") {
+          return true;
+        }
+        if (res.getStatusCode() === 409) {
+          return true;
+        }
+        if (res.getStatusCode() >= 500) {
+          return true;
+        }
+        return false;
+      }
+      _getSleepTimeInMS(numRetries, retryAfter = null) {
+        const initialNetworkRetryDelay = this._stripe.getInitialNetworkRetryDelay();
+        const maxNetworkRetryDelay = this._stripe.getMaxNetworkRetryDelay();
+        let sleepSeconds = Math.min(initialNetworkRetryDelay * Math.pow(numRetries - 1, 2), maxNetworkRetryDelay);
+        sleepSeconds *= 0.5 * (1 + Math.random());
+        sleepSeconds = Math.max(initialNetworkRetryDelay, sleepSeconds);
+        if (Number.isInteger(retryAfter) && retryAfter <= MAX_RETRY_AFTER_WAIT) {
+          sleepSeconds = Math.max(sleepSeconds, retryAfter);
+        }
+        return sleepSeconds * 1e3;
+      }
+      // Max retries can be set on a per request basis. Favor those over the global setting
+      _getMaxNetworkRetries(settings = {}) {
+        return settings.maxNetworkRetries !== void 0 && Number.isInteger(settings.maxNetworkRetries) ? settings.maxNetworkRetries : this._stripe.getMaxNetworkRetries();
+      }
+      _defaultIdempotencyKey(method, settings) {
+        const maxRetries = this._getMaxNetworkRetries(settings);
+        if (method === "POST" && maxRetries > 0) {
+          return `stripe-node-retry-${this._stripe._platformFunctions.uuid4()}`;
+        }
+        return null;
+      }
+      _makeHeaders(auth, contentLength, apiVersion, clientUserAgent, method, userSuppliedHeaders, userSuppliedSettings) {
+        const defaultHeaders = {
+          // Use specified auth token or use default from this stripe instance:
+          Authorization: auth ? `Bearer ${auth}` : this._stripe.getApiField("auth"),
+          Accept: "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": this._getUserAgentString(),
+          "X-Stripe-Client-User-Agent": clientUserAgent,
+          "X-Stripe-Client-Telemetry": this._getTelemetryHeader(),
+          "Stripe-Version": apiVersion,
+          "Stripe-Account": this._stripe.getApiField("stripeAccount"),
+          "Idempotency-Key": this._defaultIdempotencyKey(method, userSuppliedSettings)
+        };
+        const methodHasPayload = method == "POST" || method == "PUT" || method == "PATCH";
+        if (methodHasPayload || contentLength) {
+          if (!methodHasPayload) {
+            (0, utils_js_1.emitWarning)(`${method} method had non-zero contentLength but no payload is expected for this verb`);
+          }
+          defaultHeaders["Content-Length"] = contentLength;
+        }
+        return Object.assign(
+          (0, utils_js_1.removeNullish)(defaultHeaders),
+          // If the user supplied, say 'idempotency-key', override instead of appending by ensuring caps are the same.
+          (0, utils_js_1.normalizeHeaders)(userSuppliedHeaders)
+        );
+      }
+      _getUserAgentString() {
+        const packageVersion = this._stripe.getConstant("PACKAGE_VERSION");
+        const appInfo = this._stripe._appInfo ? this._stripe.getAppInfoAsString() : "";
+        return `Stripe/v1 NodeBindings/${packageVersion} ${appInfo}`.trim();
+      }
+      _getTelemetryHeader() {
+        if (this._stripe.getTelemetryEnabled() && this._stripe._prevRequestMetrics.length > 0) {
+          const metrics = this._stripe._prevRequestMetrics.shift();
+          return JSON.stringify({
+            last_request_metrics: metrics
+          });
+        }
+      }
+      _recordRequestMetrics(requestId, requestDurationMs, usage) {
+        if (this._stripe.getTelemetryEnabled() && requestId) {
+          if (this._stripe._prevRequestMetrics.length > this._maxBufferedRequestMetric) {
+            (0, utils_js_1.emitWarning)("Request metrics buffer is full, dropping telemetry message.");
+          } else {
+            const m = {
+              request_id: requestId,
+              request_duration_ms: requestDurationMs
+            };
+            if (usage && usage.length > 0) {
+              m.usage = usage;
+            }
+            this._stripe._prevRequestMetrics.push(m);
+          }
+        }
+      }
+      _request(method, host, path, data, auth, options = {}, usage = [], callback, requestDataProcessor = null) {
+        let requestData;
+        const retryRequest = (requestFn, apiVersion, headers, requestRetries, retryAfter) => {
+          return setTimeout(requestFn, this._getSleepTimeInMS(requestRetries, retryAfter), apiVersion, headers, requestRetries + 1);
+        };
+        const makeRequest = (apiVersion, headers, numRetries) => {
+          const timeout = options.settings && options.settings.timeout && Number.isInteger(options.settings.timeout) && options.settings.timeout >= 0 ? options.settings.timeout : this._stripe.getApiField("timeout");
+          const req = this._stripe.getApiField("httpClient").makeRequest(host || this._stripe.getApiField("host"), this._stripe.getApiField("port"), path, method, headers, requestData, this._stripe.getApiField("protocol"), timeout);
+          const requestStartTime = Date.now();
+          const requestEvent = (0, utils_js_1.removeNullish)({
+            api_version: apiVersion,
+            account: headers["Stripe-Account"],
+            idempotency_key: headers["Idempotency-Key"],
+            method,
+            path,
+            request_start_time: requestStartTime
+          });
+          const requestRetries = numRetries || 0;
+          const maxRetries = this._getMaxNetworkRetries(options.settings || {});
+          this._stripe._emitter.emit("request", requestEvent);
+          req.then((res) => {
+            if (_RequestSender._shouldRetry(res, requestRetries, maxRetries)) {
+              return retryRequest(
+                makeRequest,
+                apiVersion,
+                headers,
+                requestRetries,
+                // @ts-ignore
+                res.getHeaders()["retry-after"]
+              );
+            } else if (options.streaming && res.getStatusCode() < 400) {
+              return this._streamingResponseHandler(requestEvent, usage, callback)(res);
+            } else {
+              return this._jsonResponseHandler(requestEvent, usage, callback)(res);
+            }
+          }).catch((error) => {
+            if (_RequestSender._shouldRetry(null, requestRetries, maxRetries, error)) {
+              return retryRequest(makeRequest, apiVersion, headers, requestRetries, null);
+            } else {
+              const isTimeoutError = error.code && error.code === HttpClient_js_1.HttpClient.TIMEOUT_ERROR_CODE;
+              return callback(new Error_js_1.StripeConnectionError({
+                message: isTimeoutError ? `Request aborted due to timeout being reached (${timeout}ms)` : _RequestSender._generateConnectionErrorMessage(requestRetries),
+                // @ts-ignore
+                detail: error
+              }));
+            }
+          });
+        };
+        const prepareAndMakeRequest = (error, data2) => {
+          if (error) {
+            return callback(error);
+          }
+          requestData = data2;
+          this._stripe.getClientUserAgent((clientUserAgent) => {
+            var _a, _b;
+            const apiVersion = this._stripe.getApiField("version");
+            const headers = this._makeHeaders(auth, requestData.length, apiVersion, clientUserAgent, method, (_a = options.headers) !== null && _a !== void 0 ? _a : null, (_b = options.settings) !== null && _b !== void 0 ? _b : {});
+            makeRequest(apiVersion, headers, 0);
+          });
+        };
+        if (requestDataProcessor) {
+          requestDataProcessor(method, data, options.headers, prepareAndMakeRequest);
+        } else {
+          prepareAndMakeRequest(null, (0, utils_js_1.stringifyRequestData)(data || {}));
+        }
+      }
+    };
+    exports2.RequestSender = RequestSender;
+  }
+});
+
+// node_modules/stripe/cjs/Webhooks.js
+var require_Webhooks = __commonJS({
+  "node_modules/stripe/cjs/Webhooks.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.createWebhooks = void 0;
+    var Error_js_1 = require_Error();
+    var CryptoProvider_js_1 = require_CryptoProvider();
+    function createWebhooks(platformFunctions) {
+      const Webhook = {
+        DEFAULT_TOLERANCE: 300,
+        // @ts-ignore
+        signature: null,
+        constructEvent(payload, header, secret, tolerance, cryptoProvider, receivedAt) {
+          try {
+            this.signature.verifyHeader(payload, header, secret, tolerance || Webhook.DEFAULT_TOLERANCE, cryptoProvider, receivedAt);
+          } catch (e) {
+            if (e instanceof CryptoProvider_js_1.CryptoProviderOnlySupportsAsyncError) {
+              e.message += "\nUse `await constructEventAsync(...)` instead of `constructEvent(...)`";
+            }
+            throw e;
+          }
+          const jsonPayload = payload instanceof Uint8Array ? JSON.parse(new TextDecoder("utf8").decode(payload)) : JSON.parse(payload);
+          return jsonPayload;
+        },
+        async constructEventAsync(payload, header, secret, tolerance, cryptoProvider, receivedAt) {
+          await this.signature.verifyHeaderAsync(payload, header, secret, tolerance || Webhook.DEFAULT_TOLERANCE, cryptoProvider, receivedAt);
+          const jsonPayload = payload instanceof Uint8Array ? JSON.parse(new TextDecoder("utf8").decode(payload)) : JSON.parse(payload);
+          return jsonPayload;
+        },
+        /**
+         * Generates a header to be used for webhook mocking
+         *
+         * @typedef {object} opts
+         * @property {number} timestamp - Timestamp of the header. Defaults to Date.now()
+         * @property {string} payload - JSON stringified payload object, containing the 'id' and 'object' parameters
+         * @property {string} secret - Stripe webhook secret 'whsec_...'
+         * @property {string} scheme - Version of API to hit. Defaults to 'v1'.
+         * @property {string} signature - Computed webhook signature
+         * @property {CryptoProvider} cryptoProvider - Crypto provider to use for computing the signature if none was provided. Defaults to NodeCryptoProvider.
+         */
+        generateTestHeaderString: function(opts) {
+          if (!opts) {
+            throw new Error_js_1.StripeError({
+              message: "Options are required"
+            });
+          }
+          opts.timestamp = Math.floor(opts.timestamp) || Math.floor(Date.now() / 1e3);
+          opts.scheme = opts.scheme || signature.EXPECTED_SCHEME;
+          opts.cryptoProvider = opts.cryptoProvider || getCryptoProvider();
+          opts.signature = opts.signature || opts.cryptoProvider.computeHMACSignature(opts.timestamp + "." + opts.payload, opts.secret);
+          const generatedHeader = [
+            "t=" + opts.timestamp,
+            opts.scheme + "=" + opts.signature
+          ].join(",");
+          return generatedHeader;
+        }
+      };
+      const signature = {
+        EXPECTED_SCHEME: "v1",
+        verifyHeader(encodedPayload, encodedHeader, secret, tolerance, cryptoProvider, receivedAt) {
+          const { decodedHeader: header, decodedPayload: payload, details, suspectPayloadType } = parseEventDetails(encodedPayload, encodedHeader, this.EXPECTED_SCHEME);
+          const secretContainsWhitespace = /\s/.test(secret);
+          cryptoProvider = cryptoProvider || getCryptoProvider();
+          const expectedSignature = cryptoProvider.computeHMACSignature(makeHMACContent(payload, details), secret);
+          validateComputedSignature(payload, header, details, expectedSignature, tolerance, suspectPayloadType, secretContainsWhitespace, receivedAt);
+          return true;
+        },
+        async verifyHeaderAsync(encodedPayload, encodedHeader, secret, tolerance, cryptoProvider, receivedAt) {
+          const { decodedHeader: header, decodedPayload: payload, details, suspectPayloadType } = parseEventDetails(encodedPayload, encodedHeader, this.EXPECTED_SCHEME);
+          const secretContainsWhitespace = /\s/.test(secret);
+          cryptoProvider = cryptoProvider || getCryptoProvider();
+          const expectedSignature = await cryptoProvider.computeHMACSignatureAsync(makeHMACContent(payload, details), secret);
+          return validateComputedSignature(payload, header, details, expectedSignature, tolerance, suspectPayloadType, secretContainsWhitespace, receivedAt);
+        }
+      };
+      function makeHMACContent(payload, details) {
+        return `${details.timestamp}.${payload}`;
+      }
+      function parseEventDetails(encodedPayload, encodedHeader, expectedScheme) {
+        if (!encodedPayload) {
+          throw new Error_js_1.StripeSignatureVerificationError(encodedHeader, encodedPayload, {
+            message: "No webhook payload was provided."
+          });
+        }
+        const suspectPayloadType = typeof encodedPayload != "string" && !(encodedPayload instanceof Uint8Array);
+        const textDecoder = new TextDecoder("utf8");
+        const decodedPayload = encodedPayload instanceof Uint8Array ? textDecoder.decode(encodedPayload) : encodedPayload;
+        if (Array.isArray(encodedHeader)) {
+          throw new Error("Unexpected: An array was passed as a header, which should not be possible for the stripe-signature header.");
+        }
+        if (encodedHeader == null || encodedHeader == "") {
+          throw new Error_js_1.StripeSignatureVerificationError(encodedHeader, encodedPayload, {
+            message: "No stripe-signature header value was provided."
+          });
+        }
+        const decodedHeader = encodedHeader instanceof Uint8Array ? textDecoder.decode(encodedHeader) : encodedHeader;
+        const details = parseHeader(decodedHeader, expectedScheme);
+        if (!details || details.timestamp === -1) {
+          throw new Error_js_1.StripeSignatureVerificationError(decodedHeader, decodedPayload, {
+            message: "Unable to extract timestamp and signatures from header"
+          });
+        }
+        if (!details.signatures.length) {
+          throw new Error_js_1.StripeSignatureVerificationError(decodedHeader, decodedPayload, {
+            message: "No signatures found with expected scheme"
+          });
+        }
+        return {
+          decodedPayload,
+          decodedHeader,
+          details,
+          suspectPayloadType
+        };
+      }
+      function validateComputedSignature(payload, header, details, expectedSignature, tolerance, suspectPayloadType, secretContainsWhitespace, receivedAt) {
+        const signatureFound = !!details.signatures.filter(platformFunctions.secureCompare.bind(platformFunctions, expectedSignature)).length;
+        const docsLocation = "\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://github.com/stripe/stripe-node#webhook-signing";
+        const whitespaceMessage = secretContainsWhitespace ? "\n\nNote: The provided signing secret contains whitespace. This often indicates an extra newline or space is in the value" : "";
+        if (!signatureFound) {
+          if (suspectPayloadType) {
+            throw new Error_js_1.StripeSignatureVerificationError(header, payload, {
+              message: "Webhook payload must be provided as a string or a Buffer (https://nodejs.org/api/buffer.html) instance representing the _raw_ request body.Payload was provided as a parsed JavaScript object instead. \nSignature verification is impossible without access to the original signed material. \n" + docsLocation + "\n" + whitespaceMessage
+            });
+          }
+          throw new Error_js_1.StripeSignatureVerificationError(header, payload, {
+            message: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n" + docsLocation + "\n" + whitespaceMessage
+          });
+        }
+        const timestampAge = Math.floor((typeof receivedAt === "number" ? receivedAt : Date.now()) / 1e3) - details.timestamp;
+        if (tolerance > 0 && timestampAge > tolerance) {
+          throw new Error_js_1.StripeSignatureVerificationError(header, payload, {
+            message: "Timestamp outside the tolerance zone"
+          });
+        }
+        return true;
+      }
+      function parseHeader(header, scheme) {
+        if (typeof header !== "string") {
+          return null;
+        }
+        return header.split(",").reduce((accum, item) => {
+          const kv = item.split("=");
+          if (kv[0] === "t") {
+            accum.timestamp = parseInt(kv[1], 10);
+          }
+          if (kv[0] === scheme) {
+            accum.signatures.push(kv[1]);
+          }
+          return accum;
+        }, {
+          timestamp: -1,
+          signatures: []
+        });
+      }
+      let webhooksCryptoProviderInstance = null;
+      function getCryptoProvider() {
+        if (!webhooksCryptoProviderInstance) {
+          webhooksCryptoProviderInstance = platformFunctions.createDefaultCryptoProvider();
+        }
+        return webhooksCryptoProviderInstance;
+      }
+      Webhook.signature = signature;
+      return Webhook;
+    }
+    exports2.createWebhooks = createWebhooks;
   }
 });
 
@@ -8771,25 +7921,23 @@ var require_stripe_core = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.createStripe = void 0;
     var _Error = require_Error();
+    var apiVersion = require_apiVersion();
+    var resources = require_resources();
+    var HttpClient_js_1 = require_HttpClient();
+    var utils_js_1 = require_utils2();
+    var CryptoProvider_js_1 = require_CryptoProvider();
     var RequestSender_js_1 = require_RequestSender();
     var StripeResource_js_1 = require_StripeResource();
-    var StripeContext_js_1 = require_StripeContext();
     var Webhooks_js_1 = require_Webhooks();
-    var apiVersion_js_1 = require_apiVersion();
-    var CryptoProvider_js_1 = require_CryptoProvider();
-    var HttpClient_js_1 = require_HttpClient();
-    var resources = require_resources();
-    var utils_js_1 = require_utils2();
     var DEFAULT_HOST = "api.stripe.com";
     var DEFAULT_PORT = "443";
     var DEFAULT_BASE_PATH = "/v1/";
-    var DEFAULT_API_VERSION = apiVersion_js_1.ApiVersion;
+    var DEFAULT_API_VERSION = apiVersion.ApiVersion;
     var DEFAULT_TIMEOUT = 8e4;
-    var MAX_NETWORK_RETRY_DELAY_SEC = 5;
+    var MAX_NETWORK_RETRY_DELAY_SEC = 2;
     var INITIAL_NETWORK_RETRY_DELAY_SEC = 0.5;
     var APP_INFO_PROPERTIES = ["name", "version", "url", "partner_id"];
     var ALLOWED_CONFIG_PROPERTIES = [
-      "authenticator",
       "apiVersion",
       "typescript",
       "maxNetworkRetries",
@@ -8801,21 +7949,21 @@ var require_stripe_core = __commonJS({
       "protocol",
       "telemetry",
       "appInfo",
-      "stripeAccount",
-      "stripeContext"
+      "stripeAccount"
     ];
     var defaultRequestSenderFactory = (stripe2) => new RequestSender_js_1.RequestSender(stripe2, StripeResource_js_1.StripeResource.MAX_BUFFERED_REQUEST_METRICS);
     function createStripe(platformFunctions, requestSender = defaultRequestSenderFactory) {
-      Stripe.PACKAGE_VERSION = "19.3.1";
-      Stripe.API_VERSION = apiVersion_js_1.ApiVersion;
+      Stripe.PACKAGE_VERSION = "14.25.0";
       Stripe.USER_AGENT = Object.assign({ bindings_version: Stripe.PACKAGE_VERSION, lang: "node", publisher: "stripe", uname: null, typescript: false }, (0, utils_js_1.determineProcessUserAgentProperties)());
       Stripe.StripeResource = StripeResource_js_1.StripeResource;
-      Stripe.StripeContext = StripeContext_js_1.StripeContext;
       Stripe.resources = resources;
       Stripe.HttpClient = HttpClient_js_1.HttpClient;
       Stripe.HttpClientResponse = HttpClient_js_1.HttpClientResponse;
       Stripe.CryptoProvider = CryptoProvider_js_1.CryptoProvider;
-      Stripe.webhooks = (0, Webhooks_js_1.createWebhooks)(platformFunctions);
+      function createWebhooksDefault(fns = platformFunctions) {
+        return (0, Webhooks_js_1.createWebhooks)(fns);
+      }
+      Stripe.webhooks = Object.assign(createWebhooksDefault, (0, Webhooks_js_1.createWebhooks)(platformFunctions));
       function Stripe(key, config = {}) {
         if (!(this instanceof Stripe)) {
           return new Stripe(key, config);
@@ -8834,18 +7982,18 @@ var require_stripe_core = __commonJS({
         this.off = this._emitter.removeListener.bind(this._emitter);
         const agent = props.httpAgent || null;
         this._api = {
+          auth: null,
           host: props.host || DEFAULT_HOST,
           port: props.port || DEFAULT_PORT,
           protocol: props.protocol || "https",
           basePath: DEFAULT_BASE_PATH,
           version: props.apiVersion || DEFAULT_API_VERSION,
           timeout: (0, utils_js_1.validateInteger)("timeout", props.timeout, DEFAULT_TIMEOUT),
-          maxNetworkRetries: (0, utils_js_1.validateInteger)("maxNetworkRetries", props.maxNetworkRetries, 2),
+          maxNetworkRetries: (0, utils_js_1.validateInteger)("maxNetworkRetries", props.maxNetworkRetries, 1),
           agent,
           httpClient: props.httpClient || (agent ? this._platformFunctions.createNodeHttpClient(agent) : this._platformFunctions.createDefaultHttpClient()),
           dev: false,
-          stripeAccount: props.stripeAccount || null,
-          stripeContext: props.stripeContext || null
+          stripeAccount: props.stripeAccount || null
         };
         const typescript = props.typescript || false;
         if (typescript !== Stripe.USER_AGENT.typescript) {
@@ -8855,9 +8003,9 @@ var require_stripe_core = __commonJS({
           this._setAppInfo(props.appInfo);
         }
         this._prepResources();
-        this._setAuthenticator(key, props.authenticator);
+        this._setApiKey(key);
         this.errors = _Error;
-        this.webhooks = Stripe.webhooks;
+        this.webhooks = createWebhooksDefault();
         this._prevRequestMetrics = [];
         this._enableTelemetry = props.telemetry !== false;
         this._requestSender = requestSender(this);
@@ -8884,20 +8032,13 @@ var require_stripe_core = __commonJS({
         _enableTelemetry: null,
         _requestSender: null,
         _platformFunctions: null,
-        rawRequest(method, path, params, options) {
-          return this._requestSender._rawRequest(method, path, params, options);
-        },
         /**
          * @private
          */
-        _setAuthenticator(key, authenticator) {
-          if (key && authenticator) {
-            throw new Error("Can't specify both apiKey and authenticator");
+        _setApiKey(key) {
+          if (key) {
+            this._setApiField("auth", `Bearer ${key}`);
           }
-          if (!key && !authenticator) {
-            throw new Error("Neither apiKey nor config.authenticator provided");
-          }
-          this._authenticator = key ? (0, utils_js_1.createApiKeyAuthenticator)(key) : authenticator;
         },
         /**
          * @private
@@ -8911,13 +8052,17 @@ var require_stripe_core = __commonJS({
             throw new Error("AppInfo.name is required");
           }
           info = info || {};
-          this._appInfo = APP_INFO_PROPERTIES.reduce((accum, prop) => {
-            if (typeof info[prop] == "string") {
-              accum = accum || {};
-              accum[prop] = info[prop];
-            }
-            return accum;
-          }, {});
+          this._appInfo = APP_INFO_PROPERTIES.reduce(
+            (accum, prop) => {
+              if (typeof info[prop] == "string") {
+                accum = accum || {};
+                accum[prop] = info[prop];
+              }
+              return accum;
+            },
+            // @ts-ignore
+            void 0
+          );
         },
         /**
          * @private
@@ -9013,9 +8158,6 @@ var require_stripe_core = __commonJS({
             var _a;
             const userAgent = {};
             for (const field in seed) {
-              if (!Object.prototype.hasOwnProperty.call(seed, field)) {
-                continue;
-              }
               userAgent[field] = encodeURIComponent((_a = seed[field]) !== null && _a !== void 0 ? _a : "null");
             }
             userAgent.uname = encodeURIComponent(uname || "UNKNOWN");
@@ -9058,9 +8200,6 @@ var require_stripe_core = __commonJS({
          */
         _prepResources() {
           for (const name in resources) {
-            if (!Object.prototype.hasOwnProperty.call(resources, name)) {
-              continue;
-            }
             this[(0, utils_js_1.pascalToCamelCase)(name)] = new resources[name](this);
           }
         },
@@ -9087,26 +8226,6 @@ var require_stripe_core = __commonJS({
             throw new Error(`Config object may only contain the following: ${ALLOWED_CONFIG_PROPERTIES.join(", ")}`);
           }
           return config;
-        },
-        parseEventNotification(payload, header, secret, tolerance, cryptoProvider, receivedAt) {
-          const eventNotification = this.webhooks.constructEvent(payload, header, secret, tolerance, cryptoProvider, receivedAt);
-          if (eventNotification.context) {
-            eventNotification.context = StripeContext_js_1.StripeContext.parse(eventNotification.context);
-          }
-          eventNotification.fetchEvent = () => {
-            return this._requestSender._rawRequest("GET", `/v2/core/events/${eventNotification.id}`, void 0, {
-              stripeContext: eventNotification.context
-            }, ["fetch_event"]);
-          };
-          eventNotification.fetchRelatedObject = () => {
-            if (!eventNotification.related_object) {
-              return Promise.resolve(null);
-            }
-            return this._requestSender._rawRequest("GET", eventNotification.related_object.url, void 0, {
-              stripeContext: eventNotification.context
-            }, ["fetch_related_object"]);
-          };
-          return eventNotification;
         }
       };
       return Stripe;
@@ -9130,15 +8249,21 @@ var require_stripe_cjs_node = __commonJS({
 });
 
 // netlify/functions/create-checkout-session.js
-var stripe = require_stripe_cjs_node()(process.env.STRIPE_SECRET_KEY);
-exports.handler = async (event) => {
+var stripe = require_stripe_cjs_node();
+var handler = async (event, context) => {
+  const stripeClient = stripe(process.env.STRIPE_SECRET_KEY);
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS"
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json"
   };
   if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers, body: "" };
+    return {
+      statusCode: 200,
+      headers,
+      body: ""
+    };
   }
   if (event.httpMethod !== "POST") {
     return {
@@ -9149,26 +8274,51 @@ exports.handler = async (event) => {
   }
   try {
     const { priceId, userId, email, productType } = JSON.parse(event.body);
-    console.log("Creating checkout for:", { email, productType, priceId });
-    const siteUrl = process.env.URL || "http://localhost:8888";
-    const session = await stripe.checkout.sessions.create({
-      customer_email: email,
-      client_reference_id: userId,
+    console.log("Creating checkout session for:", { priceId, userId, email, productType });
+    if (!email) {
+      throw new Error("Email is required");
+    }
+    const siteUrl = process.env.URL || "https://polite-dolphin-64a8b4.netlify.app";
+    const sessionConfig = {
       payment_method_types: ["card"],
-      mode: productType.includes("pro") ? "subscription" : "payment",
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${siteUrl}/?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/pricing?canceled=true`,
-      metadata: { userId, productType }
+      mode: productType === "payg" ? "payment" : "subscription",
+      customer_email: email,
+      // Pre-fill email
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1
+        }
+      ],
+      success_url: `${siteUrl}/?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl}/?payment=cancelled`,
+      metadata: {
+        userId,
+        productType,
+        userEmail: email
+        // Store in metadata too
+      },
+      // Collect customer details
+      billing_address_collection: "required",
+      // For subscriptions, we can also set up customer creation
+      ...productType !== "payg" && {
+        customer_creation: "always"
+      }
+    };
+    const session = await stripeClient.checkout.sessions.create(sessionConfig);
+    console.log("Checkout session created:", {
+      id: session.id,
+      url: session.url,
+      customer_email: session.customer_email,
+      customer_details: session.customer_details
     });
-    console.log("Session created successfully:", session.id);
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         sessionId: session.id,
-        url: session.url
-        // Return the checkout URL
+        url: session.url,
+        customer_email: email
       })
     };
   } catch (error) {
@@ -9178,9 +8328,10 @@ exports.handler = async (event) => {
       headers,
       body: JSON.stringify({
         error: error.message,
-        type: error.type
+        details: error.toString()
       })
     };
   }
 };
+module.exports = { handler };
 //# sourceMappingURL=create-checkout-session.js.map

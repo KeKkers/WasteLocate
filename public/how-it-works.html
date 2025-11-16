@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How It Works - WasteLocate EWC Waste Management System</title>
+    <meta name="description" content="Learn how WasteLocate helps you find permitted waste facilities in three simple steps. Fast, accurate, and compliant with UK regulations.">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #374151;
+            background: linear-gradient(135deg, #f0fdf4 0%, #dbeafe 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #059669 0%, #0284c7 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 24px;
+            color: #059669;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 800;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.95;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+
+        .back-link:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .content {
+            padding: 60px 40px;
+        }
+
+        .intro {
+            text-align: center;
+            max-width: 800px;
+            margin: 0 auto 60px;
+        }
+
+        .intro h2 {
+            font-size: 2rem;
+            color: #1f2937;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .intro p {
+            font-size: 1.1rem;
+            color: #6b7280;
+            line-height: 1.8;
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin-bottom: 80px;
+        }
+
+        .step-card {
+            position: relative;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .step-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 2.5rem;
+        }
+
+        .step-1 .step-icon { background: #ecfdf5; color: #059669; }
+        .step-2 .step-icon { background: #dbeafe; color: #0284c7; }
+        .step-3 .step-icon { background: #f3e8ff; color: #9333ea; }
+
+        .step-number {
+            position: absolute;
+            top: 0;
+            right: 30px;
+            width: 40px;
+            height: 40px;
+            background: #059669;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .step-2 .step-number { background: #0284c7; }
+        .step-3 .step-number { background: #9333ea; }
+
+        .step-card h3 {
+            font-size: 1.5rem;
+            color: #1f2937;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .step-card p {
+            color: #6b7280;
+            line-height: 1.8;
+        }
+
+        .features-section {
+            border-top: 3px solid #e5e7eb;
+            padding-top: 60px;
+            margin-bottom: 60px;
+        }
+
+        .features-section h2 {
+            text-align: center;
+            font-size: 2rem;
+            color: #1f2937;
+            margin-bottom: 40px;
+            font-weight: 700;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+        }
+
+        .feature-card {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+
+        .feature-card h4 {
+            font-size: 1.1rem;
+            color: #1f2937;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .feature-card p {
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+
+        .user-types {
+            background: #f0fdf4;
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 60px;
+        }
+
+        .user-types h2 {
+            text-align: center;
+            font-size: 2rem;
+            color: #1f2937;
+            margin-bottom: 30px;
+            font-weight: 700;
+        }
+
+        .user-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .user-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            border: 2px solid #059669;
+        }
+
+        .user-card h3 {
+            font-size: 1.3rem;
+            color: #059669;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .user-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .user-card li {
+            padding: 8px 0;
+            color: #374151;
+            display: flex;
+            align-items: start;
+            gap: 10px;
+        }
+
+        .user-card li::before {
+            content: "✓";
+            color: #059669;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .cta-section {
+            background: linear-gradient(135deg, #059669 0%, #0284c7 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 50px 40px;
+            text-align: center;
+        }
+
+        .cta-section h2 {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .cta-section p {
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            opacity: 0.95;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 15px 35px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: transform 0.3s, box-shadow 0.3s;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary {
+            background: white;
+            color: #059669;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+        }
+
+        footer {
+            background: #f9fafb;
+            padding: 30px 40px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.9rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        footer a {
+            color: #059669;
+            margin: 0 10px;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            header {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .content {
+                padding: 40px 20px;
+            }
+
+            .intro h2 {
+                font-size: 1.75rem;
+            }
+
+            .steps-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+
+            .step-number {
+                right: 20px;
+            }
+
+            .features-grid, .user-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            footer {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">WL</div>
+            <h1>How WasteLocate Works</h1>
+            <p class="subtitle">Find the right waste facility in three simple steps</p>
+            <a href="/" class="back-link">
+                ← Back to Home
+            </a>
+        </header>
+
+        <div class="content">
+            <div class="intro">
+                <h2>Fast, Accurate & Compliant</h2>
+                <p>
+                    WasteLocate streamlines the process of finding permitted waste facilities across the UK. 
+                    Our platform connects waste producers, hauliers, and disposal sites, making compliance 
+                    with UK environmental regulations straightforward and efficient.
+                </p>
+            </div>
+
+            <!-- Three Steps -->
+            <div class="steps-grid">
+                <div class="step-card step-1">
+                    <div class="step-number">1</div>
+                    <div class="step-icon">🔍</div>
+                    <h3>Select Your EWC Code</h3>
+                    <p>
+                        Choose your waste type from our comprehensive database of European Waste Catalogue codes. 
+                        Our intuitive three-tier system guides you through:
+                    </p>
+                    <ul style="text-align: left; margin-top: 15px; color: #6b7280;">
+                        <li style="margin-bottom: 8px;"><strong>Chapter:</strong> Waste origin (e.g., construction, chemical processes)</li>
+                        <li style="margin-bottom: 8px;"><strong>Subchapter:</strong> Specific waste process</li>
+                        <li style="margin-bottom: 8px;"><strong>Code:</strong> Exact waste classification with hazard status</li>
+                    </ul>
+                </div>
+
+                <div class="step-card step-2">
+                    <div class="step-number">2</div>
+                    <div class="step-icon">🗄️</div>
+                    <h3>Search Our Database</h3>
+                    <p>
+                        Once you've selected your EWC code, our system instantly searches through our database of 
+                        permitted facilities. Features include:
+                    </p>
+                    <ul style="text-align: left; margin-top: 15px; color: #6b7280;">
+                        <li style="margin-bottom: 8px;">Real-time facility availability</li>
+                        <li style="margin-bottom: 8px;">Distance-based sorting by postcode</li>
+                        <li style="margin-bottom: 8px;">Capacity and pricing information</li>
+                        <li style="margin-bottom: 8px;">Permit number verification</li>
+                    </ul>
+                </div>
+
+                <div class="step-card step-3">
+                    <div class="step-number">3</div>
+                    <div class="step-icon">✅</div>
+                    <h3>Connect & Dispose</h3>
+                    <p>
+                        View comprehensive facility details and make informed decisions. Access includes:
+                    </p>
+                    <ul style="text-align: left; margin-top: 15px; color: #6b7280;">
+                        <li style="margin-bottom: 8px;">Full contact information (phone, email, website)</li>
+                        <li style="margin-bottom: 8px;">Physical address and postcode</li>
+                        <li style="margin-bottom: 8px;">Disposal costs and capacity limits</li>
+                        <li style="margin-bottom: 8px;">Environmental permit numbers</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Features Section -->
+            <div class="features-section">
+                <h2>Why Choose WasteLocate?</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <h4>Instant Results</h4>
+                        <p>Get facility matches in seconds, not hours. No more endless phone calls or searching.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">🔒</div>
+                        <h4>Verified Facilities</h4>
+                        <p>All facilities in our database are permitted and authorized by the Environment Agency.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">📍</div>
+                        <h4>Location-Based</h4>
+                        <p>Find the nearest facilities to minimize transport costs and environmental impact.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">💰</div>
+                        <h4>Transparent Pricing</h4>
+                        <p>View disposal costs upfront to make budget-conscious decisions.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <h4>Detailed Information</h4>
+                        <p>Access capacity, permit numbers, and waste code acceptance details.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">🌍</div>
+                        <h4>UK-Wide Coverage</h4>
+                        <p>Search facilities across England, Wales, Scotland, and Northern Ireland.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">📱</div>
+                        <h4>Mobile Friendly</h4>
+                        <p>Access WasteLocate on any device, anywhere, anytime.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">⏱️</div>
+                        <h4>24/7 Access</h4>
+                        <p>Search for facilities around the clock, no business hours limitations.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Types Section -->
+            <div class="user-types">
+                <h2>Built For Everyone in Waste Management</h2>
+                <div class="user-grid">
+                    <div class="user-card">
+                        <h3>🏭 Waste Producers</h3>
+                        <ul>
+                            <li>Find compliant disposal routes for your waste</li>
+                            <li>Compare facilities and pricing</li>
+                            <li>Reduce Duty of Care administrative burden</li>
+                            <li>Ensure environmental compliance</li>
+                            <li>Access facility permits and authorizations</li>
+                        </ul>
+                    </div>
+
+                    <div class="user-card">
+                        <h3>🚛 Waste Hauliers</h3>
+                        <ul>
+                            <li>Locate facilities near collection points</li>
+                            <li>Optimize transport routes and costs</li>
+                            <li>Find alternative disposal sites quickly</li>
+                            <li>Verify facility permits and waste acceptance</li>
+                            <li>Reduce empty running and fuel costs</li>
+                        </ul>
+                    </div>
+
+                    <div class="user-card">
+                        <h3>♻️ Disposal Facilities</h3>
+                        <ul>
+                            <li>Market your services to waste producers</li>
+                            <li>Showcase your waste acceptance capabilities</li>
+                            <li>Display capacity and pricing information</li>
+                            <li>Reach new customers across the UK</li>
+                            <li>Increase facility utilization rates</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CTA Section -->
+            <div class="cta-section">
+                <h2>Ready to Get Started?</h2>
+                <p>Join hundreds of waste professionals using WasteLocate to simplify waste management</p>
+                <div class="cta-buttons">
+                    <a href="/" class="btn btn-primary">Start Searching Now</a>
+                    <a href="/pricing.html" class="btn btn-secondary">View Pricing Plans</a>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2025 WasteLocate Ltd. All rights reserved.</p>
+            <p>
+                <a href="/">Home</a> |
+                <a href="/how-it-works.html">How It Works</a> |
+                <a href="/about.html">About Us</a> |
+                <a href="/faq.html">FAQ</a> |
+                <a href="/terms.html">Terms</a> |
+                <a href="/privacy.html">Privacy</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
