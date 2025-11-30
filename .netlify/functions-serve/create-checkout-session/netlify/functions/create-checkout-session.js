@@ -8278,7 +8278,7 @@ var handler = async (event, context) => {
     if (!email) {
       throw new Error("Email is required");
     }
-    const siteUrl = process.env.URL || "https://polite-dolphin-64a8b4.netlify.app";
+    const siteUrl = process.env.URL || "https://www.wastelocate.co.uk";
     const sessionConfig = {
       payment_method_types: ["card"],
       mode: productType === "payg" ? "payment" : "subscription",
