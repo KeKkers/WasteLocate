@@ -201,28 +201,27 @@ export default function EWCWasteManagementSystem() {
 
   const handleLogout = async () => {
     console.log('Logging out...');
+    
+    // Clear state immediately for better UX
+    setUser(null);
+    setUserProfile(null);
+    setShowUserMenu(false);
+    setCurrentView('public');
+    
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Logout error:', error);
-        setUser(null);
-        setUserProfile(null);
-        setShowUserMenu(false);
-        setCurrentView('public');
-        alert('Logged out (with error): ' + error.message);
+        // Don't alert for "Auth session missing" - this is expected if session already expired
+        if (error.message !== 'Auth session missing!' && !error.message.includes('session')) {
+          alert('Logout error: ' + error.message);
+        }
       } else {
         console.log('Logout successful');
-        setUser(null);
-        setUserProfile(null);
-        setShowUserMenu(false);
-        setCurrentView('public');
       }
     } catch (err) {
       console.error('Logout exception:', err);
-      setUser(null);
-      setUserProfile(null);
-      setShowUserMenu(false);
-      setCurrentView('public');
+      // Silent fail - user state is already cleared
     }
   };
 
