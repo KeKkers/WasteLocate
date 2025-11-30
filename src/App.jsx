@@ -1124,7 +1124,7 @@ function PricingView({ onBack, user, userProfile, onSuccess }) {
               </li>
             </ul>
             <button 
-              onClick={() => handlePurchase('price_1STgeYRy6wJc4RiFxIERqEbK', 'payg')}
+              onClick={() => handlePurchase('price_1SZ80uRy6wJc4RiFre1OmqvR', 'payg')}
               disabled={loading || !user}
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-semibold flex items-center justify-center gap-2"
             >
