@@ -4,40 +4,127 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WasteLocate Blog</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<meta name="description" content="Stay updated with the latest insights on waste management, EWC codes, compliance, and best practices.">
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(135deg, #f0fdf4 0%, #dbeafe 100%);
+        color: #374151;
+    }
+    header {
+        background: linear-gradient(135deg, #059669 0%, #0284c7 100%);
+        padding: 40px;
+        text-align: center;
+        color: white;
+    }
+    .logo {
+        width: 60px;
+        height: 60px;
+        background: white;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 24px;
+        color: #059669;
+        margin-bottom: 15px;
+    }
+    .back-link {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 12px 24px;
+        background: rgba(255,255,255,0.25);
+        border-radius: 8px;
+        color: white;
+        text-decoration: none;
+    }
+    .back-link:hover {
+        background: rgba(255,255,255,0.35);
+    }
+    .container {
+        max-width: 900px;
+        margin: 40px auto;
+        padding: 25px;
+    }
+    .blog-post {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 15px rgba(0,0,0,0.05);
+    }
+    .blog-post h2 {
+        font-size: 1.8rem;
+        margin-bottom: 15px;
+        color: #1f2937;
+    }
+    .blog-post p {
+        color: #4b5563;
+        line-height: 1.7;
+        margin-bottom: 15px;
+    }
+    footer {
+        text-align: center;
+        padding: 30px;
+        font-size: .9rem;
+        color: #6b7280;
+    }
+</style>
 </head>
-<body class="bg-gray-50 p-6 md:p-12">
-  <header class="mb-12">
-    <h1 class="text-3xl font-bold mb-2">WasteLocate Blog</h1>
-    <p class="text-gray-700">Latest guidance and tips for UK businesses managing waste</p>
-  </header>
+<body>
 
-  <div id="blog-container" class="space-y-8"></div>
+<header>
+    <div class="logo">WL</div>
+    <h1>WasteLocate Blog</h1>
+    <p>Insights and updates on waste management and compliance</p>
+    <a href="/" class="back-link">← Back to Home</a>
+</header>
 
-  <script>
-    fetch('blog_posts.json')
-      .then(res => res.json())
-      .then(posts => {
-        const container = document.getElementById('blog-container');
-        posts.forEach(p => {
-          const div = document.createElement('div');
-          div.className = "blog-post bg-white rounded shadow p-6";
-          div.innerHTML = `
-            <img src="${p.img}" alt="${p.title}" class="w-full rounded-lg mb-4" />
-            <h2 class="text-xl font-bold mb-2">${p.title}</h2>
-            <p>${p.content}</p>
-            <ul class="list-disc pl-5 mt-2 mb-2">
-              ${p.tips.map(t => `<li>${t}</li>`).join('')}
-            </ul>
-            <p><strong>Note:</strong> ${p.note}</p>
-          `;
-          container.appendChild(div);
-        });
-      })
-      .catch(err => {
-        console.error("Failed to load blog posts", err);
-        document.getElementById('blog-container').innerHTML = "<p class='text-red-600'>Failed to load blog posts.</p>";
-      });
-  </script>
+<div class="container">
+
+    <div class="blog-post">
+        <h2>Understanding EWC Codes: A Simple Guide for UK Businesses</h2>
+        <p>Proper waste classification is essential for legal compliance and environmental safety. EWC codes categorize waste into specific types, helping businesses dispose of it correctly.</p>
+        <ul>
+            <li>EWC codes are 6-digit numbers, e.g., 17 01 01 for concrete.</li>
+            <li>They help ensure your waste is handled by authorized facilities.</li>
+            <li>Misclassification can result in fines and environmental harm.</li>
+        </ul>
+        <p><strong>Tip:</strong> Always consult official WM3 guidance for accurate classification.</p>
+    </div>
+
+    <div class="blog-post">
+        <h2>Top Tips for Finding the Right Waste Facility in the UK</h2>
+        <p>Not all waste facilities are the same. This guide helps you locate a licensed, permitted site efficiently.</p>
+        <ul>
+            <li>Use WasteLocate to search by EWC code and location.</li>
+            <li>Confirm permits via the Environment Agency public register.</li>
+            <li>Some waste types, especially hazardous waste, require specialist handling.</li>
+            <li>Keep records of all transfers for Duty of Care compliance.</li>
+        </ul>
+        <p><strong>Pro Tip:</strong> Schedule waste collections in advance to avoid delays.</p>
+    </div>
+
+    <div class="blog-post">
+        <h2>Duty of Care in Waste Management: What UK Businesses Need to Know</h2>
+        <p>UK businesses are legally responsible for the safe storage, transfer, and disposal of waste. Key responsibilities include:</p>
+        <ul>
+            <li>Correctly describe and classify waste.</li>
+            <li>Transfer waste only to authorized persons.</li>
+            <li>Keep Waste Transfer Notes for at least 2 years.</li>
+            <li>Regularly verify that your chosen facilities hold valid permits.</li>
+        </ul>
+        <p><strong>Reminder:</strong> Failing Duty of Care can lead to fines, prosecution, and environmental damage.</p>
+    </div>
+
+</div>
+
+<footer>
+    © 2025 WasteLocate — All rights reserved.
+</footer>
+
 </body>
 </html>
