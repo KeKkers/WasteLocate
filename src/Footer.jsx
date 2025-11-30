@@ -86,6 +86,16 @@ function Footer() {
                   FAQ
                 </a>
               </li>
+               <li>
+                <a href="/blog.html" className="text-sm text-gray-600 hover:text-green-600 transition-colors">
+                  Blog
+                </a>
+              </li>
+               <li>
+                <a href="/contact.html" className="text-sm text-gray-600 hover:text-green-600 transition-colors">
+                  Contact Form
+                </a>
+              </li>
             </ul>
           </div>
 
