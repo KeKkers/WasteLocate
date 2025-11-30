@@ -1124,13 +1124,14 @@ function PricingView({ onBack, user, userProfile, onSuccess }) {
               </li>
             </ul>
             <button 
-              onClick={() => handlePurchase('price_1SZ7KRRy6wJc4RiFivpvOXki', 'payg')}
+              onClick={() => handlePurchase('price_1STgeYRy6wJc4RiFxIERqEbK', 'payg')}
               disabled={loading || !user}
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-semibold flex items-center justify-center gap-2"
             >
               <CreditCard className="w-5 h-5" />
               {loading ? 'Processing...' : 'Buy Now'}
             </button>
+            
             {!user && <p className="text-xs text-center text-gray-500 mt-2">Login required</p>}
           </div>
 
