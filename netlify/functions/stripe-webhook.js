@@ -55,12 +55,11 @@ async function handleCheckoutComplete(session) {
   const { error: purchaseErr } = await supabase.from('purchases').insert({
     user_id: userId,
     stripe_session_id: session.id,
-    amount_total: session.amount_total,
-    currency: session.currency,
+    amount: session.amount_total / 100, // Stripe amounts in cents
     product_type: productType,
-    status: 'completed',
-    purchased_at: new Date().toISOString()
+    searches_added: productType === 'payg' ? 5 : null
   });
+  
   if (purchaseErr) console.error('Error inserting purchase:', purchaseErr);
   else console.log('Purchase recorded for user', userId);
 
