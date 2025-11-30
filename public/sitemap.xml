@@ -1,15 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://wastelocate.co.uk/</loc>
-    <lastmod>2024-11-15</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://wastelocate.co.uk/pricing</loc>
-    <lastmod>2024-11-15</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
+
+    <!-- Core/Public-facing pages only -->
+    <url>
+        <loc>https://www.wastelocate.co.uk/</loc>
+        <changefreq>weekly</changefreq>
+    </url>
+
+    <url>
+        <loc>https://www.wastelocate.co.uk/about</loc>
+        <changefreq>monthly</changefreq>
+    </url>
+
+    <url>
+        <loc>https://www.wastelocate.co.uk/how-it-works</loc>
+        <changefreq>monthly</changefreq>
+    </url>
+
+    <url>
+        <loc>https://www.wastelocate.co.uk/terms</loc>
+        <changefreq>yearly</changefreq>
+    </url>
+
+    <url>
+        <loc>https://www.wastelocate.co.uk/privacy%20policy</loc>
+        <changefreq>yearly</changefreq>
+    </url>
+
 </urlset>
