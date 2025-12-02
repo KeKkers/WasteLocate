@@ -574,8 +574,8 @@ if (user && session && !isRerunningSearch) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+  <div className="flex items-center gap-4 w-full md:w-auto">
             <img 
               src="/wastelocate-logo.png" 
               alt="WasteLocate Logo" 
@@ -588,11 +588,11 @@ if (user && session && !isRerunningSearch) {
             <div className="w-16 h-16 bg-green-600 rounded-lg items-center justify-center text-white font-bold text-2xl" style={{display: 'none'}}>
               WL
             </div>
-            <div>
-              <p className="text-gray-600">Find permitted facilities for your waste</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-gray-600 text-sm md:text-base">Find permitted facilities for your waste</p>
             </div>
           </div>
-          <div className="flex gap-3 items-center">
+          <div className="flex gap-3 items-center w-full md:w-auto justify-end">
             {user ? (
               <div className="relative" ref={menuRef}>
                 <button 
@@ -878,9 +878,9 @@ if (user && session && !isRerunningSearch) {
                     <div className={`border-2 border-gray-200 rounded-lg overflow-hidden hover:border-green-500 transition-colors ${!user ? 'blur-sm' : ''}`}>
                       <button
                         onClick={() => setExpandedFacilityId(expandedFacilityId === facility.id ? null : facility.id)}
-                        className="w-full px-6 py-4 flex items-center justify-between bg-white hover:bg-gray-50 transition-colors"
+                        className="w-full px-4 py-3 md:px-6 md:py-4 flex flex-col md:flex-row items-start md:items-center gap-3 md:justify-between bg-white hover:bg-gray-50 transition-colors"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto">
                           <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${expandedFacilityId === facility.id ? 'rotate-180' : ''}`} />
                           <div className="text-left">
                             {facility.operator_name && (
@@ -891,8 +891,7 @@ if (user && session && !isRerunningSearch) {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {facility.distance !== undefined && facility.distance !== null && (
+                        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto justify-start md:justify-end">                          {facility.distance !== undefined && facility.distance !== null && (
                             <span className="text-sm font-semibold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">
                               {facility.distance} miles
                             </span>
@@ -2627,10 +2626,10 @@ function ProfileView({ user, userProfile, onBack, onRefreshProfile }) {
                 {searchHistory.map((search) => (
                   <div 
                     key={search.id}
-                    className="flex items-start justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+                    className="flex flex-col md:flex-row md:items-start md:justify-between p-3 md:p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 gap-3"
                   >
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="font-mono text-sm font-semibold text-blue-600">
                           {search.ewc_code}
                         </span>
@@ -2671,8 +2670,7 @@ function ProfileView({ user, userProfile, onBack, onRefreshProfile }) {
                           };
                         }
                       }}
-                      className="ml-4 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 flex-shrink-0"
-                      title="Rerun this search (free)"
+                      className="w-full md:w-auto md:ml-4 px-3 py-2 text-sm md:text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-center gap-1"                      title="Rerun this search (free)"
                     >
                       <Search className="w-3.5 h-3.5" />
                       Rerun
@@ -2687,4 +2685,5 @@ function ProfileView({ user, userProfile, onBack, onRefreshProfile }) {
     </div>
   );
 }
+
 
