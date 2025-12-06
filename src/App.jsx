@@ -4,6 +4,7 @@ import { supabase } from './supabaseClient';
 import { loadStripe } from '@stripe/stripe-js';
 import Footer from './Footer';
 
+
 // Initialize Stripe - Replace with your publishable key
 const stripePromise = loadStripe('pk_live_51SSmVkRy6wJc4RiFsf77CnjFRUkZ1qKRkN8LRwUWr792J4JS0NZ3nuOzRoPGbVsZrxk9A28ZIHhn39ixa6kqEm6d002zcepCbL');
 
@@ -16,6 +17,7 @@ export default function EWCWasteManagementSystem() {
   const [loading, setLoading] = useState(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [showFacilityApplication, setShowFacilityApplication] = useState(false);
   
 // SEO Meta tags
   useEffect(() => {
@@ -103,6 +105,24 @@ export default function EWCWasteManagementSystem() {
     };
   }, [showUserMenu]);
 
+
+useEffect(() => {
+  const handleHashNavigation = () => {
+    if (window.location.hash === '#apply-facility') {
+      setCurrentView('apply-facility');
+      window.location.hash = '';
+    } else if (window.location.hash === '#facility-dashboard') {
+      setCurrentView('facility-dashboard');
+      window.location.hash = '';
+    }
+  };
+
+  handleHashNavigation();
+  window.addEventListener('hashchange', handleHashNavigation);
+  
+  return () => window.removeEventListener('hashchange', handleHashNavigation);
+}, []);
+
 useEffect(() => {
   // Check if there's a rerun search request
   if (window.rerunSearch) {
@@ -150,6 +170,14 @@ useEffect(() => {
     delete window.rerunSearch;
   }
 }, [data, currentView]);
+
+useEffect(() => {
+  if (currentView === 'apply-facility' && adminFacilities.length === 0) {
+    loadAdminFacilities();
+  }
+}, [currentView]);
+
+
 
   const loadUserProfile = async (userId) => {
     console.log('Loading profile for user:', userId);
@@ -544,13 +572,39 @@ if (user && session && !isRerunningSearch) {
     />
   );
 }
-  if (currentView === 'profile' && user) {
+if (currentView === 'profile' && user) {
   return (
     <ProfileView
       user={user}
       userProfile={userProfile}
       onBack={() => setCurrentView('public')}
       onRefreshProfile={() => loadUserProfile(user.id)}
+      onNavigateToApply={() => setCurrentView('apply-facility')}
+    />
+  );
+}
+
+if (currentView === 'apply-facility' && user) {
+  // Load facilities if not already loaded
+  if (adminFacilities.length === 0) {
+    loadAdminFacilities();
+  }
+  
+  return (
+    <FacilityApplicationView
+      user={user}
+      onBack={() => setCurrentView('public')}
+      facilities={adminFacilities}
+    />
+  );
+}
+
+if (currentView === 'facility-dashboard' && user && userProfile?.owns_facility) {
+  return (
+    <FacilityOwnerDashboard
+      user={user}
+      userProfile={userProfile}
+      onBack={() => setCurrentView('public')}
     />
   );
 }
@@ -798,7 +852,7 @@ if (user && session && !isRerunningSearch) {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Your Postcode (Optional - for distance sorting)
                 </label>
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <input
                     type="text"
                     value={userPostcode}
@@ -806,15 +860,17 @@ if (user && session && !isRerunningSearch) {
                     placeholder="e.g., M1 1AE"
                     className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
-                  <label className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                    <input
-                      type="checkbox"
-                      checked={sortByDistance}
-                      onChange={(e) => setSortByDistance(e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm font-semibold text-gray-700">Sort by distance</span>
-                  </label>
+                 <label className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-300 
+                rounded-lg cursor-pointer hover:bg-gray-50 whitespace-nowrap">
+                  <input 
+                    type="checkbox"
+                    checked={sortByDistance}
+                    onChange={(e) => setSortByDistance(e.target.checked)}
+                    className="w-4 h-4 flex-shrink-0"
+                  />
+                  <span className="text-sm font-semibold text-gray-700">Sort by distance</span>
+                </label>
+
                 </div>
                 <p className="text-xs text-gray-600 mt-2">
                   Enter your postcode to see facilities sorted by distance from your location
@@ -1309,13 +1365,16 @@ function AdminPanel({ facilities, onRefresh, onLogout, onBack }) {
   const [activeTab, setActiveTab] = useState('facilities');
   const [users, setUsers] = useState([]);
   const itemsPerPage = 50;
+  const [applications, setApplications] = useState([]);
 
-  useEffect(() => {
-    onRefresh();
-    if (activeTab === 'users') {
-      loadUsers();
-    }
-  }, [activeTab]);
+useEffect(() => {
+  onRefresh();
+  if (activeTab === 'users') {
+    loadUsers();
+  } else if (activeTab === 'applications') {
+    loadApplications();
+  }
+}, [activeTab]);
 
   const loadUsers = async () => {
     const { data, error } = await supabase
@@ -1330,6 +1389,60 @@ function AdminPanel({ facilities, onRefresh, onLogout, onBack }) {
       setUsers(data || []);
     }
   };
+const loadApplications = async () => {
+  try {
+    // First, get all applications with facilities
+    const { data: appsData, error: appsError } = await supabase
+      .from('facility_applications')
+      .select(`
+        *,
+        facilities (
+          name,
+          permit_number,
+          postcode,
+          city
+        )
+      `)
+      .order('created_at', { ascending: false });
+    
+    if (appsError) throw appsError;
+    
+    if (!appsData || appsData.length === 0) {
+      setApplications([]);
+      return;
+    }
+    
+    // Get unique user IDs
+    const userIds = [...new Set(appsData.map(app => app.user_id))];
+    
+    // Fetch user profiles
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, email, name, company')
+      .in('id', userIds);
+    
+    if (profilesError) throw profilesError;
+    
+    // Create a map of profiles by ID
+    const profilesMap = {};
+    (profilesData || []).forEach(profile => {
+      profilesMap[profile.id] = profile;
+    });
+    
+    // Combine the data
+    const combinedData = appsData.map(app => ({
+      ...app,
+      profiles: profilesMap[app.user_id] || { email: 'Unknown', name: null, company: null }
+    }));
+    
+    setApplications(combinedData);
+  } catch (error) {
+    console.error('Error loading applications:', error);
+    alert('Error loading applications: ' + error.message);
+  }
+};
+
+
 
   const filteredFacilities = facilities.filter(f => 
     f.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1431,6 +1544,20 @@ function AdminPanel({ facilities, onRefresh, onLogout, onBack }) {
             >
               Waste Codes
             </button>
+
+<button
+  onClick={() => setActiveTab('applications')}
+  className={`flex-1 px-6 py-4 font-semibold transition-colors ${
+    activeTab === 'applications'
+      ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+  }`}
+>
+  Applications ({applications.length})
+</button>
+
+
+
           </div>
         </div>
 
@@ -1549,6 +1676,15 @@ function AdminPanel({ facilities, onRefresh, onLogout, onBack }) {
         {activeTab === 'waste-codes' && (
           <WasteCodesManagement facilities={facilities} onRefresh={onRefresh} />
         )}
+        {activeTab === 'applications' && (
+  <ApplicationsManagement 
+    applications={applications} 
+    onRefresh={() => {
+      loadApplications();
+      onRefresh(); // Refresh facilities too since they might be updated
+    }} 
+  />
+)}
       </div>
 
       {showAddModal && (
@@ -1878,6 +2014,254 @@ function WasteCodesManagement({ facilities, onRefresh }) {
             onRefresh();
           }}
         />
+      )}
+    </div>
+  );
+}
+
+function ApplicationsManagement({ applications, onRefresh }) {
+  const [processingId, setProcessingId] = useState(null);
+
+const handleApplication = async (applicationId, facilityId, userId, status) => {
+  const action = status === 'approved' ? 'approve' : 'reject';
+  if (!confirm(`Are you sure you want to ${action} this application?`)) return;
+
+  setProcessingId(applicationId);
+  
+  try {
+    // If approved, update facility and user profile FIRST
+    if (status === 'approved') {
+      console.log('Approving application for user:', userId, 'facility:', facilityId);
+      
+        const check = await supabase
+          .from('facilities')
+          .select('id')
+          .eq('id', facilityId);
+
+        console.log("CHECK MATCH:", check);
+
+
+      // Link facility to user
+      const { data: facilityData, error: facilityError } = await supabase
+        .from('facilities')
+        .update({ owner_id: userId })
+        .eq('id', facilityId)
+        .select();
+
+      console.log('Facility update result:', facilityData, facilityError);
+      
+      if (facilityError) {
+        console.error('Facility update error:', facilityError);
+        throw facilityError;
+      }
+
+      // Update user profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .update({ owns_facility: true })
+        .eq('id', userId)
+        .select();
+
+      console.log('Profile update result:', profileData, profileError);
+      
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw profileError;
+      }
+    }
+
+    // Update application status
+    const { data: appData, error: appError } = await supabase
+      .from('facility_applications')
+      .update({
+        status,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: (await supabase.auth.getUser()).data.user.id
+      })
+      .eq('id', applicationId)
+      .select();
+
+    console.log('Application update result:', appData, appError);
+
+    if (appError) throw appError;
+
+    alert(`Application ${action}ed successfully!`);
+    onRefresh();
+  } catch (error) {
+    console.error(`Error ${action}ing application:`, error);
+    alert(`Failed to ${action} application: ` + error.message);
+  } finally {
+    setProcessingId(null);
+  }
+};
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      approved: 'bg-green-100 text-green-800',
+      rejected: 'bg-red-100 text-red-800'
+    };
+    return (
+      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${styles[status]}`}>
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </span>
+    );
+  };
+
+  const pendingApplications = applications.filter(a => a.status === 'pending');
+  const reviewedApplications = applications.filter(a => a.status !== 'pending');
+
+  return (
+    <div className="space-y-6">
+      {/* Pending Applications */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6 border-b">
+          <h2 className="text-xl font-bold text-gray-800">
+            Pending Applications ({pendingApplications.length})
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Review and approve facility management applications
+          </p>
+        </div>
+        <div className="p-6">
+          {pendingApplications.length === 0 ? (
+            <div className="text-center py-8">
+              <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600">No pending applications</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {pendingApplications.map(app => (
+                <div key={app.id} className="border-2 border-yellow-200 rounded-lg p-5 bg-yellow-50">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="font-semibold text-gray-800 text-lg">
+                        {app.facilities.name}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {app.facilities.permit_number} • {app.facilities.city}, {app.facilities.postcode}
+                      </p>
+                    </div>
+                    {getStatusBadge(app.status)}
+                  </div>
+
+                  <div className="bg-white rounded-lg p-4 mb-3">
+                    <div className="flex items-start gap-2 mb-2">
+                      <User className="w-4 h-4 text-gray-500 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">
+                          {app.profiles.name || 'Name not provided'}
+                        </p>
+                        <p className="text-sm text-gray-600">{app.profiles.email}</p>
+                        {app.profiles.company && (
+                          <p className="text-xs text-gray-500">{app.profiles.company}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-4 mb-4">
+                    <p className="text-sm font-semibold text-gray-700 mb-2">Application Message:</p>
+                    <p className="text-sm text-gray-700">{app.message}</p>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      Applied: {new Date(app.created_at).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handleApplication(app.id, app.facility_id, app.user_id, 'approved')}
+                      disabled={processingId === app.id}
+                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 font-semibold flex items-center justify-center gap-2"
+                    >
+                      {processingId === app.id ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      ) : (
+                        <>
+                          <Shield className="w-4 h-4" />
+                          Approve
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleApplication(app.id, app.facility_id, app.user_id, 'rejected')}
+                      disabled={processingId === app.id}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 font-semibold flex items-center justify-center gap-2"
+                    >
+                      {processingId === app.id ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          Reject
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Reviewed Applications */}
+      {reviewedApplications.length > 0 && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="p-6 border-b">
+            <h2 className="text-xl font-bold text-gray-800">
+              Reviewed Applications ({reviewedApplications.length})
+            </h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Applicant</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Facility</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Applied</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Reviewed</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {reviewedApplications.map(app => (
+                  <tr key={app.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-semibold text-gray-800">
+                        {app.profiles.name || 'N/A'}
+                      </p>
+                      <p className="text-xs text-gray-600">{app.profiles.email}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-gray-800">{app.facilities.name}</p>
+                      <p className="text-xs text-gray-600">{app.facilities.permit_number}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      {getStatusBadge(app.status)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {new Date(app.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {app.reviewed_at ? new Date(app.reviewed_at).toLocaleDateString() : 'N/A'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -2282,7 +2666,7 @@ function EditFacilityModal({ facility, onClose, onSuccess }) {
 // Add this new component after the EditFacilityModal function (around line 1400)
 // and before the end of the file
 
-function ProfileView({ user, userProfile, onBack, onRefreshProfile }) {
+function ProfileView({ user, userProfile, onBack, onRefreshProfile, onNavigateToApply }) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searchHistory, setSearchHistory] = useState([]);
@@ -2584,20 +2968,56 @@ function ProfileView({ user, userProfile, onBack, onRefreshProfile }) {
             </div>
           </div>
 
-          {/* Facility Owner Section */}
-          {userProfile?.owns_facility && (
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-xl p-6">
-              <div className="flex items-start gap-3">
-                <Building2 className="w-5 h-5 text-purple-600 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-gray-800 mb-2">Facility Owner</h3>
-                  <p className="text-sm text-gray-700">
-                    You are registered as a facility owner. Contact support to manage your facility listing.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+{/* Facility Owner Section */}
+{userProfile?.owns_facility && (
+  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-xl p-6">
+    <div className="flex items-start gap-3">
+      <Building2 className="w-5 h-5 text-purple-600 mt-0.5" />
+      <div className="flex-1">
+        <h3 className="font-semibold text-gray-800 mb-2">Facility Owner</h3>
+        <p className="text-sm text-gray-700 mb-3">
+          You are registered as a facility owner. Manage your facility information and waste codes.
+        </p>
+        <button
+          onClick={() => {
+            onBack();
+            setTimeout(() => {
+              window.location.hash = 'facility-dashboard';
+            }, 100);
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+        >
+          <Building2 className="w-4 h-4" />
+          Go to Facility Dashboard
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
+
+          {/* Apply to Manage Facility */}
+{!userProfile?.owns_facility && (
+  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-xl p-6">
+    <div className="flex items-start gap-3">
+      <Building2 className="w-5 h-5 text-blue-600 mt-0.5" />
+      <div className="flex-1">
+        <h3 className="font-semibold text-gray-800 mb-2">Facility Owner?</h3>
+        <p className="text-sm text-gray-700 mb-3">
+          If you own or operate a waste facility, apply to manage your facility listing and keep it up to date.
+        </p>
+<button
+  onClick={onNavigateToApply}
+  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+>
+  <Building2 className="w-4 h-4" />
+  Apply to Manage Facility
+</button>
+      </div>
+    </div>
+  </div>
+)}
 
           {/* Search History */}
           <div className="bg-white rounded-lg shadow-xl p-6">
@@ -2685,5 +3105,898 @@ function ProfileView({ user, userProfile, onBack, onRefreshProfile }) {
     </div>
   );
 }
+
+function FacilityApplicationView({ user, onBack, facilities }) {
+  const [selectedFacility, setSelectedFacility] = useState('');
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [myApplications, setMyApplications] = useState([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
+
+  useEffect(() => {
+    loadMyApplications();
+  }, [user]);
+
+
+
+  const loadMyApplications = async () => {
+    if (!user) return;
+    
+    setApplicationsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('facility_applications')
+        .select(`
+          *,
+          facilities (
+            name,
+            permit_number,
+            postcode
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMyApplications(data || []);
+    } catch (error) {
+      console.error('Error loading applications:', error);
+    } finally {
+      setApplicationsLoading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedFacility) {
+      alert('Please select a facility');
+      return;
+    }
+
+    if (!message.trim()) {
+      alert('Please provide a message explaining why you should manage this facility');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('facility_applications')
+        .insert([{
+          user_id: user.id,
+          facility_id: selectedFacility,
+          message: message.trim()
+        }]);
+
+      if (error) throw error;
+
+      alert('Application submitted successfully! We will review it shortly.');
+      setSelectedFacility('');
+      setMessage('');
+      loadMyApplications();
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      alert('Failed to submit application: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredFacilities = facilities.filter(f =>
+    f.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    f.permit_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    f.postcode?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      approved: 'bg-green-100 text-green-800',
+      rejected: 'bg-red-100 text-red-800'
+    };
+    return (
+      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${styles[status]}`}>
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </span>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-white rounded-lg transition-colors"
+          >
+            <Home className="w-5 h-5" />
+            Back
+          </button>
+          <h1 className="text-3xl font-bold text-gray-800">Apply to Manage a Facility</h1>
+        </div>
+
+        {/* Application Form */}
+        <div className="bg-white rounded-lg shadow-xl p-6 mb-6">
+          <h3 className="text-xl font-semibold text-gray-800 mb-4">Submit New Application</h3>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Search for Facility
+              </label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by name, permit number, or postcode..."
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 mb-2"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Select Facility *
+              </label>
+              <select
+                value={selectedFacility}
+                onChange={(e) => setSelectedFacility(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Choose a facility...</option>
+                {filteredFacilities.map(facility => (
+                  <option key={facility.id} value={facility.id}>
+                    {facility.name} - {facility.permit_number} ({facility.postcode})
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                {filteredFacilities.length} facilities available
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Why should you manage this facility? *
+              </label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Explain your connection to this facility and why you should be granted management access..."
+                rows="5"
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-semibold"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Building2 className="w-5 h-5" />
+                  Submit Application
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* My Applications */}
+        <div className="bg-white rounded-lg shadow-xl p-6">
+          <h3 className="text-xl font-semibold text-gray-800 mb-4">My Applications</h3>
+          
+          {applicationsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : myApplications.length === 0 ? (
+            <div className="text-center py-8">
+              <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600">No applications yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {myApplications.map(app => (
+                <div key={app.id} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-semibold text-gray-800">{app.facilities.name}</p>
+                      <p className="text-sm text-gray-600">{app.facilities.permit_number}</p>
+                    </div>
+                    {getStatusBadge(app.status)}
+                  </div>
+                  <p className="text-sm text-gray-700 mb-2">{app.message}</p>
+                  <p className="text-xs text-gray-500">
+                    Applied: {new Date(app.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FacilityOwnerDashboard({ user, userProfile, onBack }) {
+  const [myFacility, setMyFacility] = useState(null);
+  const [wasteCodes, setWasteCodes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingFacility, setEditingFacility] = useState(false);
+  const [showAddCodeModal, setShowAddCodeModal] = useState(false);
+  const [editingCode, setEditingCode] = useState(null);
+  const [facilityForm, setFacilityForm] = useState({});
+
+  useEffect(() => {
+    loadMyFacility();
+  }, [user]);
+
+  const loadMyFacility = async () => {
+    setLoading(true);
+    try {
+      // Load facility owned by this user
+      const { data: facilityData, error: facilityError } = await supabase
+  .from('facilities')
+  .select('*')
+  .eq('owner_id', user.id)
+  .single();
+
+      if (facilityError) {
+        if (facilityError.code === 'PGRST116') {
+          // No facility found
+          setMyFacility(null);
+        } else {
+          throw facilityError;
+        }
+      } else {
+        setMyFacility(facilityData);
+        setFacilityForm(facilityData);
+        loadWasteCodes(facilityData.id);
+      }
+    } catch (error) {
+      console.error('Error loading facility:', error);
+      alert('Error loading your facility: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadWasteCodes = async (facilityId) => {
+    const { data, error } = await supabase
+      .from('facility_waste_codes')
+      .select('*')
+      .eq('facility_id', facilityId)
+      .order('ewc_code');
+
+    if (error) {
+      console.error('Error loading waste codes:', error);
+    } else {
+      setWasteCodes(data || []);
+    }
+  };
+
+  const updateFacility = async () => {
+    try {
+      const { error } = await supabase
+        .from('facilities')
+        .update({
+          name: facilityForm.name,
+          operator_name: facilityForm.operator_name,
+          address_line1: facilityForm.address_line1,
+          address_line2: facilityForm.address_line2,
+          city: facilityForm.city,
+          postcode: facilityForm.postcode,
+          phone: facilityForm.phone,
+          email: facilityForm.email,
+          website: facilityForm.website
+        })
+        .eq('id', myFacility.id);
+
+      if (error) throw error;
+
+      alert('Facility updated successfully!');
+      setEditingFacility(false);
+      loadMyFacility();
+    } catch (error) {
+      console.error('Error updating facility:', error);
+      alert('Error updating facility: ' + error.message);
+    }
+  };
+
+  const deleteWasteCode = async (codeId) => {
+    if (!confirm('Are you sure you want to remove this waste code?')) return;
+
+    const { error } = await supabase
+      .from('facility_waste_codes')
+      .delete()
+      .eq('id', codeId);
+
+    if (error) {
+      alert('Error deleting waste code: ' + error.message);
+    } else {
+      loadWasteCodes(myFacility.id);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your facility...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!myFacility) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-white rounded-lg transition-colors mb-6"
+          >
+            <Home className="w-5 h-5" />
+            Back
+          </button>
+          <div className="bg-white rounded-lg shadow-xl p-8 text-center">
+            <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">No Facility Assigned</h2>
+            <p className="text-gray-600">
+              You don't have a facility assigned to your account yet.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-white rounded-lg transition-colors"
+            >
+              <Home className="w-5 h-5" />
+              Back
+            </button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800">My Facility Dashboard</h1>
+              <p className="text-gray-600">Manage your facility information and waste codes</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Facility Information */}
+        <div className="bg-white rounded-lg shadow-xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-800">Facility Information</h2>
+            {!editingFacility ? (
+              <button
+                onClick={() => setEditingFacility(true)}
+                className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              >
+                <Edit2 className="w-4 h-4" />
+                Edit Details
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={updateFacility}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  <Save className="w-4 h-4" />
+                  Save Changes
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingFacility(false);
+                    setFacilityForm(myFacility);
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Facility Name</label>
+              {editingFacility ? (
+                <input
+                  type="text"
+                  value={facilityForm.name || ''}
+                  onChange={(e) => setFacilityForm({...facilityForm, name: e.target.value})}
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.name}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Operator Name</label>
+              {editingFacility ? (
+                <input
+                  type="text"
+                  value={facilityForm.operator_name || ''}
+                  onChange={(e) => setFacilityForm({...facilityForm, operator_name: e.target.value})}
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.operator_name || '-'}</p>
+              )}
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Permit Number</label>
+              <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800 font-mono">{myFacility.permit_number}</p>
+              <p className="text-xs text-gray-500 mt-1">Contact admin to change permit number</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Address Line 1</label>
+              {editingFacility ? (
+                <input
+                  type="text"
+                  value={facilityForm.address_line1 || ''}
+                  onChange={(e) => setFacilityForm({...facilityForm, address_line1: e.target.value})}
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.address_line1 || '-'}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Address Line 2</label>
+              {editingFacility ? (
+                <input
+                  type="text"
+                  value={facilityForm.address_line2 || ''}
+                  onChange={(e) => setFacilityForm({...facilityForm, address_line2: e.target.value})}
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.address_line2 || '-'}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">City</label>
+              {editingFacility ? (
+                <input
+                  type="text"
+                  value={facilityForm.city || ''}
+                  onChange={(e) => setFacilityForm({...facilityForm, city: e.target.value})}
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.city || '-'}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Postcode</label>
+              {editingFacility ? (
+                <input
+                  type="text"
+                  value={facilityForm.postcode || ''}
+                  onChange={(e) => setFacilityForm({...facilityForm, postcode: e.target.value.toUpperCase()})}
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.postcode}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Phone</label>
+              {editingFacility ? (
+                <input
+                  type="tel"
+                  value={facilityForm.phone || ''}
+                  onChange={(e) => setFacilityForm({...facilityForm, phone: e.target.value})}
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.phone || '-'}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+              {editingFacility ? (
+                <input
+                  type="email"
+                  value={facilityForm.email || ''}
+                  onChange={(e) => setFacilityForm({...facilityForm, email: e.target.value})}
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.email || '-'}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Website</label>
+              {editingFacility ? (
+                <input
+                  type="url"
+                  value={facilityForm.website || ''}
+                  onChange={(e) => setFacilityForm({...facilityForm, website: e.target.value})}
+                  placeholder="https://"
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.website || '-'}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Waste Codes */}
+        <div className="bg-white rounded-lg shadow-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">Accepted Waste Codes</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Manage the EWC codes your facility can accept
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAddCodeModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              <Plus className="w-4 h-4" />
+              Add Waste Code
+            </button>
+          </div>
+
+          {wasteCodes.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600 mb-2">No waste codes added yet</p>
+              <p className="text-sm text-gray-500">Add waste codes to let users know what waste you can accept</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              {wasteCodes.map(code => (
+                <div key={code.id} className="border-2 border-gray-200 rounded-lg p-4 hover:border-green-500 transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                      <p className="font-mono font-bold text-lg text-gray-800">{code.ewc_code}</p>
+                      {code.notes && (
+                        <p className="text-sm text-gray-600 mt-1">{code.notes}</p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setEditingCode(code)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteWasteCode(code.id)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                    {code.max_volume && (
+                      <div className="bg-blue-50 px-3 py-2 rounded">
+                        <p className="text-xs text-gray-600">Max Volume</p>
+                        <p className="font-semibold text-gray-800">
+                          {code.max_volume} {code.volume_unit}
+                        </p>
+                      </div>
+                    )}
+                    {code.price_per_unit && (
+                      <div className="bg-green-50 px-3 py-2 rounded">
+                        <p className="text-xs text-gray-600">Price</p>
+                        <p className="font-semibold text-gray-800">
+                          £{code.price_per_unit}/tonne
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Add Waste Code Modal */}
+      {showAddCodeModal && (
+        <OwnerAddWasteCodeModal
+          facilityId={myFacility.id}
+          onClose={() => setShowAddCodeModal(false)}
+          onSuccess={() => {
+            setShowAddCodeModal(false);
+            loadWasteCodes(myFacility.id);
+          }}
+        />
+      )}
+
+      {/* Edit Waste Code Modal */}
+      {editingCode && (
+        <OwnerEditWasteCodeModal
+          code={editingCode}
+          onClose={() => setEditingCode(null)}
+          onSuccess={() => {
+            setEditingCode(null);
+            loadWasteCodes(myFacility.id);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function OwnerAddWasteCodeModal({ facilityId, onClose, onSuccess }) {
+  const [formData, setFormData] = useState({
+    ewc_code: '',
+    notes: '',
+    max_volume: '',
+    volume_unit: 'tonnes',
+    price_per_unit: '',
+    currency: 'GBP'
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!formData.ewc_code.trim()) {
+      alert('Please enter an EWC code');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('facility_waste_codes')
+        .insert([{
+          facility_id: facilityId,
+          ewc_code: formData.ewc_code.trim(),
+          notes: formData.notes.trim() || null,
+          max_volume: formData.max_volume ? parseFloat(formData.max_volume) : null,
+          volume_unit: formData.volume_unit,
+          price_per_unit: formData.price_per_unit ? parseFloat(formData.price_per_unit) : null,
+          currency: formData.currency
+        }]);
+
+      if (error) throw error;
+      onSuccess();
+    } catch (error) {
+      console.error('Error adding waste code:', error);
+      alert('Error adding waste code: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <h3 className="text-xl font-bold text-gray-800 mb-4">Add Waste Code</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              EWC Code *
+            </label>
+            <input
+              type="text"
+              value={formData.ewc_code}
+              onChange={(e) => setFormData({...formData, ewc_code: e.target.value})}
+              placeholder="e.g., 17 01 01"
+              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({...formData, notes: e.target.value})}
+              placeholder="Any special requirements or conditions..."
+              rows="3"
+              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Max Volume</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.max_volume}
+                onChange={(e) => setFormData({...formData, max_volume: e.target.value})}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Unit</label>
+              <select
+                value={formData.volume_unit}
+                onChange={(e) => setFormData({...formData, volume_unit: e.target.value})}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="tonnes">Tonnes</option>
+                <option value="cubic meters">Cubic Meters</option>
+                <option value="loads">Loads</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Price per Tonne (£)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.price_per_unit}
+              onChange={(e) => setFormData({...formData, price_per_unit: e.target.value})}
+              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400"
+            >
+              {loading ? 'Adding...' : 'Add Code'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OwnerEditWasteCodeModal({ code, onClose, onSuccess }) {
+  const [formData, setFormData] = useState({
+    notes: code.notes || '',
+    max_volume: code.max_volume || '',
+    volume_unit: code.volume_unit || 'tonnes',
+    price_per_unit: code.price_per_unit || '',
+    currency: code.currency || 'GBP'
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('facility_waste_codes')
+        .update({
+          notes: formData.notes.trim() || null,
+          max_volume: formData.max_volume ? parseFloat(formData.max_volume) : null,
+          volume_unit: formData.volume_unit,
+          price_per_unit: formData.price_per_unit ? parseFloat(formData.price_per_unit) : null,
+          currency: formData.currency
+        })
+        .eq('id', code.id);
+
+      if (error) throw error;
+      onSuccess();
+    } catch (error) {
+      console.error('Error updating waste code:', error);
+      alert('Error updating waste code: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <h3 className="text-xl font-bold text-gray-800 mb-4">Edit Waste Code</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">EWC Code</label>
+            <p className="px-4 py-2 bg-gray-100 rounded-lg font-mono font-bold text-gray-800">
+              {code.ewc_code}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Code cannot be changed</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({...formData, notes: e.target.value})}
+              placeholder="Any special requirements or conditions..."
+              rows="3"
+              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Max Volume</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.max_volume}
+                onChange={(e) => setFormData({...formData, max_volume: e.target.value})}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Unit</label>
+              <select
+                value={formData.volume_unit}
+                onChange={(e) => setFormData({...formData, volume_unit: e.target.value})}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="tonnes">Tonnes</option>
+                <option value="cubic meters">Cubic Meters</option>
+                <option value="loads">Loads</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Price per Tonne (£)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.price_per_unit}
+              onChange={(e) => setFormData({...formData, price_per_unit: e.target.value})}
+              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+            >
+              {loading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 
 
