@@ -44,6 +44,60 @@
       border-top:1px solid #e5e7eb;
     }
     @media (max-width:768px) { .content { padding:28px 20px; } }
+
+    /* === ACCORDION STYLES === */
+    article {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+    .accordion-header {
+        background-color: #f9fafb;
+        padding: 20px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background-color 0.2s;
+    }
+    .accordion-header:hover {
+        background-color: #f3f4f6;
+    }
+    .accordion-header h2 {
+        margin: 0;
+        font-size: 1.3rem; /* Adjusted for header role */
+    }
+    .accordion-icon {
+        font-size: 1.5rem;
+        transition: transform 0.3s;
+    }
+    .collapsed .accordion-icon {
+        transform: rotate(0deg);
+    }
+    .expanded .accordion-icon {
+        transform: rotate(180deg);
+    }
+    .accordion-content {
+        padding: 0 20px;
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.4s ease-out, padding 0.4s ease-out;
+    }
+    .accordion-content.expanded {
+        max-height: 3000px; /* Large enough value to contain content */
+        padding: 20px;
+    }
+    .accordion-content p, .accordion-content ul, .accordion-content ol {
+        padding-left: 0;
+    }
+    .accordion-content h3 {
+        margin-top: 18px;
+    }
+    
+    /* Remove the redundant sections from original file */
+    .faq-section { display: none; } 
+    hr { display: none; }
   </style>
 </head>
 <body>
@@ -57,270 +111,278 @@
 
     <div class="content">
 
-      <!-- ======================== POST 1: EWC CODES ======================== -->
-      <article>
-        <h2>Understanding EWC Codes: A Complete Guide for UK Waste Producers</h2>
+      <article class="accordion-item">
+        <div class="accordion-header collapsed">
+          <h2>Understanding EWC Codes: A Complete Guide for UK Waste Producers</h2>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
+          <img src="images/ewc-guide-corrected.png" alt="Understanding EWC codes example" class="blog-image">
+          <p>
+            European Waste Catalogue (EWC) codes — sometimes called LoW (List of Waste) codes — are the foundation of waste classification in the UK. 
+            Every business that produces waste must identify the correct code before the material can be stored, transported, or disposed of legally. 
+            Incorrect coding can lead to rejected loads, enforcement action, financial penalties and, in some cases, prosecution.
+          </p>
 
-        <img src="images/ewc-guide-corrected.png" alt="Understanding EWC codes example" class="blog-image">
+          <h3>Why EWC Codes Matter</h3>
+          <p>
+            EWC codes exist to ensure that waste streams are classified consistently across Europe and the UK. The six-digit code tells you:
+          </p>
+          <ul>
+            <li><strong>What type of waste it is</strong> (e.g., construction, municipal, commercial).</li>
+            <li><strong>Whether the waste is hazardous or non-hazardous</strong>.</li>
+            <li><strong>What regulations apply</strong>, including Duty of Care and consignment requirements.</li>
+            <li><strong>Which licensed sites</strong> can legally accept the waste.</li>
+          </ul>
 
-        <p>
-          European Waste Catalogue (EWC) codes — sometimes called LoW (List of Waste) codes — are the foundation of waste classification in the UK. 
-          Every business that produces waste must identify the correct code before the material can be stored, transported, or disposed of legally. 
-          Incorrect coding can lead to rejected loads, enforcement action, financial penalties and, in some cases, prosecution.
-        </p>
+          <h3>Correct Example EWC Codes</h3>
+          <ul>
+            <li><strong>17 02 01</strong> — Wood from construction and demolition activities (non-hazardous).</li>
+            <li><strong>20 03 01</strong> — Mixed municipal waste, commonly produced by businesses and households.</li>
+            <li><strong>16 01 03</strong> — Used or end-of-life tyres (Chapter 16: wastes not otherwise specified).</li>
+          </ul>
 
-        <h3>Why EWC Codes Matter</h3>
-        <p>
-          EWC codes exist to ensure that waste streams are classified consistently across Europe and the UK. The six-digit code tells you:
-        </p>
-        <ul>
-          <li><strong>What type of waste it is</strong> (e.g., construction, municipal, commercial).</li>
-          <li><strong>Whether the waste is hazardous or non-hazardous</strong>.</li>
-          <li><strong>What regulations apply</strong>, including Duty of Care and consignment requirements.</li>
-          <li><strong>Which licensed sites</strong> can legally accept the waste.</li>
-        </ul>
+          <h3>How to Identify the Proper EWC Code</h3>
+          <p>Follow the government’s recommended three-step process:</p>
+          <ol>
+            <li><strong>Identify the source activity.</strong> For example, construction, manufacturing, healthcare, ELV dismantling etc.</li>
+            <li><strong>Check the chapter and sub-chapter descriptions.</strong></li>
+            <li><strong>Identify the correct six-digit code.</strong></li>
+          </ol>
 
-        <h3>Correct Example EWC Codes</h3>
-        <ul>
-          <li><strong>17 02 01</strong> — Wood from construction and demolition activities (non-hazardous).</li>
-          <li><strong>20 03 01</strong> — Mixed municipal waste, commonly produced by businesses and households.</li>
-          <li><strong>16 01 03</strong> — Used or end-of-life tyres (Chapter 16: wastes not otherwise specified).</li>
-        </ul>
+          <p>
+            If the waste appears in more than one chapter, you must use the chapter relating to the <strong>original process that created it</strong>.
+            If you misclassify waste, the receiving site may reject the load or require a revised transfer note before tipping.
+          </p>
 
-        <h3>How to Identify the Proper EWC Code</h3>
-        <p>Follow the government’s recommended three-step process:</p>
-        <ol>
-          <li><strong>Identify the source activity.</strong> For example, construction, manufacturing, healthcare, ELV dismantling etc.</li>
-          <li><strong>Check the chapter and sub-chapter descriptions.</strong></li>
-          <li><strong>Identify the correct six-digit code.</strong></li>
-        </ol>
-
-        <p>
-          If the waste appears in more than one chapter, you must use the chapter relating to the <strong>original process that created it</strong>.
-          If you misclassify waste, the receiving site may reject the load or require a revised transfer note before tipping.
-        </p>
-
-        <h3>Official Reference Links</h3>
-        <ul>
-          <li><a href="https://www.gov.uk/guidance/how-to-classify-different-types-of-waste" target="_blank">GOV.UK – How to classify different types of waste</a></li>
-          <li><a href="https://assets.publishing.service.gov.uk/media/6152d0b78fa8f5610b9c222b/Waste_classification_technical_guidance_WM3.pdf" target="_blank">WM3 Technical Guidance (PDF)</a></li>
-        </ul>
+          <h3>Official Reference Links</h3>
+          <ul>
+            <li><a href="https://www.gov.uk/guidance/how-to-classify-different-types-of-waste" target="_blank">GOV.UK – How to classify different types of waste</a></li>
+            <li><a href="https://assets.publishing.service.gov.uk/media/6152d0b78fa8f5610b9c222b/Waste_classification_technical_guidance_WM3.pdf" target="_blank">WM3 Technical Guidance (PDF)</a></li>
+          </ul>
+        </div>
       </article>
 
-      <hr>
 
-      <!-- ======================== POST 2: PERMITS ======================== -->
-      <article>
-        <h2>Environmental Permits: What They Are and Why They Matter for Businesses</h2>
+      <article class="accordion-item">
+        <div class="accordion-header collapsed">
+          <h2>Environmental Permits: What They Are and Why They Matter for Businesses</h2>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
+          <img src="images/environmental-permits.png" alt="Environmental permits guidance" class="blog-image">
+          <p>
+            Environmental permits exist to regulate activities that could pose a risk to human health or the environment.
+            They apply to waste sites, treatment activities, energy generation, industrial processes, discharges to water, and many other operations.
+            Whether you're buying land, operating a waste site, or establishing new infrastructure, understanding the requirements of environmental permitting is essential to avoid legal and financial pitfalls.
+          </p>
 
-        <img src="images/environmental-permits.png" alt="Environmental permits guidance" class="blog-image">
+          <h3>What an Environmental Permit Covers</h3>
+          <p>
+            Permits set conditions to ensure that environmental impacts are controlled and adequately monitored.
+            These conditions may include:
+          </p>
+          <ul>
+            <li>Limits on storage volumes or waste types.</li>
+            <li>Emission monitoring and controls.</li>
+            <li>Infrastructure and drainage requirements.</li>
+            <li>Record-keeping, reporting and inspection obligations.</li>
+          </ul>
 
-        <p>
-          Environmental permits exist to regulate activities that could pose a risk to human health or the environment.
-          They apply to waste sites, treatment activities, energy generation, industrial processes, discharges to water, and many other operations.
-          Whether you're buying land, operating a waste site, or establishing new infrastructure, understanding the requirements of environmental permitting is essential to avoid legal and financial pitfalls.
-        </p>
+          <h3>Permits and Commercial Transactions</h3>
+          <p>
+            When buying or leasing a site, undisclosed or incorrectly transferred permits can create major issues.  
+            Some businesses assume permits automatically transfer with a property — <strong>they do not</strong>.
+            The new operator must apply to transfer, vary, or surrender the permit.
+          </p>
+          <p>
+            During due diligence, always check:
+          </p>
+          <ul>
+            <li>Whether the permit is valid and active.</li>
+            <li>Whether the permit matches the activities taking place.</li>
+            <li>Compliance history, breaches, warnings or enforcement notices.</li>
+            <li>Site plan boundaries vs permitted boundary.</li>
+          </ul>
 
-        <h3>What an Environmental Permit Covers</h3>
-        <p>
-          Permits set conditions to ensure that environmental impacts are controlled and adequately monitored.
-          These conditions may include:
-        </p>
-        <ul>
-          <li>Limits on storage volumes or waste types.</li>
-          <li>Emission monitoring and controls.</li>
-          <li>Infrastructure and drainage requirements.</li>
-          <li>Record-keeping, reporting and inspection obligations.</li>
-        </ul>
-
-        <h3>Permits and Commercial Transactions</h3>
-        <p>
-          When buying or leasing a site, undisclosed or incorrectly transferred permits can create major issues.  
-          Some businesses assume permits automatically transfer with a property — <strong>they do not</strong>.
-          The new operator must apply to transfer, vary, or surrender the permit.
-        </p>
-        <p>
-          During due diligence, always check:
-        </p>
-        <ul>
-          <li>Whether the permit is valid and active.</li>
-          <li>Whether the permit matches the activities taking place.</li>
-          <li>Compliance history, breaches, warnings or enforcement notices.</li>
-          <li>Site plan boundaries vs permitted boundary.</li>
-        </ul>
-
-        <h3>Useful Links</h3>
-        <ul>
-          <li><a href="https://www.gov.uk/government/collections/environmental-permit-guidance-and-application-forms" target="_blank">Environmental permit guidance & forms</a></li>
-          <li><a href="https://www.gov.uk/guidance/check-if-you-need-an-environmental-permit" target="_blank">Check if you need an environmental permit</a></li>
-        </ul>
+          <h3>Useful Links</h3>
+          <ul>
+            <li><a href="https://www.gov.uk/government/collections/environmental-permit-guidance-and-application-forms" target="_blank">Environmental permit guidance & forms</a></li>
+            <li><a href="https://www.gov.uk/guidance/check-if-you-need-an-environmental-permit" target="_blank">Check if you need an environmental permit</a></li>
+          </ul>
+        </div>
       </article>
 
-      <hr>
 
-      <!-- ======================== POST 3: CARRIER/BROKER/DEALER ======================== -->
-      <article>
-        <h2>What Is a Waste Carrier, Broker or Dealer? A Practical UK Guide</h2>
+      <article class="accordion-item">
+        <div class="accordion-header collapsed">
+          <h2>What Is a Waste Carrier, Broker or Dealer? A Practical UK Guide</h2>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
+          <img src="images/waste-carrier.png" alt="Waste carrier, broker and dealer roles" class="blog-image">
+          <p>
+            Many businesses are surprised to learn that simply transporting waste — even their own — can require registration.
+            Others do not realise that arranging the transport of waste for someone else (even without physically handling it) may classify them as a waste broker.
+          </p>
 
-        <img src="images/waste-carrier.png" alt="Waste carrier, broker and dealer roles" class="blog-image">
+          <h3>Waste Carrier</h3>
+          <p>
+            You are a carrier if you transport waste as part of your business.  
+            There are two tiers:
+          </p>
+          <ul>
+            <li><strong>Upper Tier</strong> — For most businesses transporting for others.</li>
+            <li><strong>Lower Tier</strong> — For organisations transporting their own non-hazardous waste.</li>
+          </ul>
 
-        <p>
-          Many businesses are surprised to learn that simply transporting waste — even their own — can require registration.
-          Others do not realise that arranging the transport of waste for someone else (even without physically handling it) may classify them as a waste broker.
-        </p>
+          <h3>Waste Broker</h3>
+          <p>
+            A broker organises the movement of waste without physically transporting it.  
+            For example, logistics coordinators, facilities managers, or skip brokers.
+          </p>
 
-        <h3>Waste Carrier</h3>
-        <p>
-          You are a carrier if you transport waste as part of your business.  
-          There are two tiers:
-        </p>
-        <ul>
-          <li><strong>Upper Tier</strong> — For most businesses transporting for others.</li>
-          <li><strong>Lower Tier</strong> — For organisations transporting their own non-hazardous waste.</li>
-        </ul>
+          <h3>Waste Dealer</h3>
+          <p>
+            Dealers buy or sell waste, or act as intermediaries in commercial waste transactions.
+          </p>
 
-        <h3>Waste Broker</h3>
-        <p>
-          A broker organises the movement of waste without physically transporting it.  
-          For example, logistics coordinators, facilities managers, or skip brokers.
-        </p>
+          <h3>Why This Matters</h3>
+          <p>
+            Operating without the correct registration can result in:
+          </p>
+          <ul>
+            <li>£5,000+ fines</li>
+            <li>Vehicle seizure</li>
+            <li>Prosecution</li>
+            <li>Loss of site access</li>
+          </ul>
 
-        <h3>Waste Dealer</h3>
-        <p>
-          Dealers buy or sell waste, or act as intermediaries in commercial waste transactions.
-        </p>
-
-        <h3>Why This Matters</h3>
-        <p>
-          Operating without the correct registration can result in:
-        </p>
-        <ul>
-          <li>£5,000+ fines</li>
-          <li>Vehicle seizure</li>
-          <li>Prosecution</li>
-          <li>Loss of site access</li>
-        </ul>
-
-        <h3>Official Links</h3>
-        <ul>
-          <li><a href="https://www.gov.uk/waste-carrier-or-broker-registration" target="_blank">Register as a carrier/broker/dealer</a></li>
-          <li><a href="https://environment.data.gov.uk/public-register/view/search-waste-carriers-brokers" target="_blank">Check the public register</a></li>
-        </ul>
+          <h3>Official Links</h3>
+          <ul>
+            <li><a href="https://www.gov.uk/waste-carrier-or-broker-registration" target="_blank">Register as a carrier/broker/dealer</a></li>
+            <li><a href="https://environment.data.gov.uk/public-register/view/search-waste-carriers-brokers" target="_blank">Check the public register</a></li>
+          </ul>
+        </div>
       </article>
 
-      <hr>
 
-      <!-- ======================== POST 4: DO YOU NEED A PERMIT? ======================== -->
-      <article>
-        <h2>How Do You Know If You Need an Environmental Permit?</h2>
+      <article class="accordion-item">
+        <div class="accordion-header collapsed">
+          <h2>How Do You Know If You Need an Environmental Permit?</h2>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
+          <img src="images/permit-needed.png" alt="Do I need a permit?" class="blog-image">
+          <p>
+            Businesses often assume they don’t need a permit because their activity seems low-risk.
+            However, the threshold for requiring a permit is sometimes much lower than expected.
+            Failure to obtain one can lead to enforcement notices, stop-work orders and significant fines.
+          </p>
 
-        <img src="images/permit-needed.png" alt="Do I need a permit?" class="blog-image">
+          <h3>Common Activities That Require a Permit</h3>
+          <ul>
+            <li>Storing or treating waste above exemption thresholds</li>
+            <li>Operating machinery that emits dust, fumes or noise</li>
+            <li>Fuel storage or combustion equipment</li>
+            <li>Discharging to surface water or groundwater</li>
+            <li>Biological waste treatment</li>
+          </ul>
 
-        <p>
-          Businesses often assume they don’t need a permit because their activity seems low-risk.
-          However, the threshold for requiring a permit is sometimes much lower than expected.
-          Failure to obtain one can lead to enforcement notices, stop-work orders and significant fines.
-        </p>
+          <h3>Understanding Exemptions vs Permits</h3>
+          <p>
+            Some operations can be carried out under an exemption (e.g., T5, S1, U1), but these often include strict volume limitations.
+            If you exceed them — even unintentionally — you are automatically operating illegally.
+          </p>
 
-        <h3>Common Activities That Require a Permit</h3>
-        <ul>
-          <li>Storing or treating waste above exemption thresholds</li>
-          <li>Operating machinery that emits dust, fumes or noise</li>
-          <li>Fuel storage or combustion equipment</li>
-          <li>Discharging to surface water or groundwater</li>
-          <li>Biological waste treatment</li>
-        </ul>
-
-        <h3>Understanding Exemptions vs Permits</h3>
-        <p>
-          Some operations can be carried out under an exemption (e.g., T5, S1, U1), but these often include strict volume limitations.
-          If you exceed them — even unintentionally — you are automatically operating illegally.
-        </p>
-
-        <h3>Helpful Links</h3>
-        <ul>
-          <li><a href="https://www.gov.uk/guidance/check-if-you-need-an-environmental-permit" target="_blank">Permit checker tool</a></li>
-          <li><a href="https://www.gov.uk/guidance/waste-exemptions-using-waste" target="_blank">Waste exemptions guidance</a></li>
-        </ul>
+          <h3>Helpful Links</h3>
+          <ul>
+            <li><a href="https://www.gov.uk/guidance/check-if-you-need-an-environmental-permit" target="_blank">Permit checker tool</a></li>
+            <li><a href="https://www.gov.uk/guidance/waste-exemptions-using-waste" target="_blank">Waste exemptions guidance</a></li>
+          </ul>
+        </div>
       </article>
 
-      <hr>
 
-      <!-- ======================== POST 5: DUTY OF CARE ======================== -->
-      <article>
-        <h2>Understanding Your Waste Duty of Care Responsibilities</h2>
+      <article class="accordion-item">
+        <div class="accordion-header collapsed">
+          <h2>Understanding Your Waste Duty of Care Responsibilities</h2>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
+          <img src="images/duty-of-care.png" alt="Duty of Care in waste management" class="blog-image">
+          <p>
+            Under Section 34 of the Environmental Protection Act 1990, every business has a legal Duty of Care for the waste it produces.
+            This means ensuring it is stored, transported, and disposed of safely — and only via licensed carriers and permitted sites.
+          </p>
 
-        <img src="images/duty-of-care.png" alt="Duty of Care in waste management" class="blog-image">
+          <h3>Main Duty of Care Requirements</h3>
+          <ul>
+            <li>Correct EWC classification</li>
+            <li>Secure on-site storage</li>
+            <li>Transfer only to registered carriers</li>
+            <li>Keep waste transfer notes for at least 2 years</li>
+            <li>Ensure receiving sites are properly permitted</li>
+          </ul>
 
-        <p>
-          Under Section 34 of the Environmental Protection Act 1990, every business has a legal Duty of Care for the waste it produces.
-          This means ensuring it is stored, transported, and disposed of safely — and only via licensed carriers and permitted sites.
-        </p>
+          <p>
+            Non-compliance can result in enforcement notices, penalties or being held liable for downstream fly-tipping if your waste ends up in the wrong hands.
+          </p>
 
-        <h3>Main Duty of Care Requirements</h3>
-        <ul>
-          <li>Correct EWC classification</li>
-          <li>Secure on-site storage</li>
-          <li>Transfer only to registered carriers</li>
-          <li>Keep waste transfer notes for at least 2 years</li>
-          <li>Ensure receiving sites are properly permitted</li>
-        </ul>
-
-        <p>
-          Non-compliance can result in enforcement notices, penalties or being held liable for downstream fly-tipping if your waste ends up in the wrong hands.
-        </p>
-
-        <h3>Official Guidance</h3>
-        <ul>
-          <li><a href="https://www.gov.uk/government/publications/waste-duty-of-care-code-of-practice" target="_blank">Waste Duty of Care Code of Practice</a></li>
-        </ul>
+          <h3>Official Guidance</h3>
+          <ul>
+            <li><a href="https://www.gov.uk/government/publications/waste-duty-of-care-code-of-practice" target="_blank">Waste Duty of Care Code of Practice</a></li>
+          </ul>
+        </div>
       </article>
 
-      <hr>
 
-      <!-- ======================== POST 6: UNLICENSED CARRIERS ======================== -->
-      <article>
-        <h2>The Risks of Using an Unlicensed Waste Carrier</h2>
+      <article class="accordion-item">
+        <div class="accordion-header collapsed">
+          <h2>The Risks of Using an Unlicensed Waste Carrier</h2>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
+          <img src="images/unlicensed-carrier.png" alt="Risks of unlicensed waste carriers" class="blog-image">
+          <p>
+            The UK waste industry still suffers from fly-tipping and illegal waste movements. 
+            Many of these incidents originate from unregistered carriers offering "cheap" disposal services.
+            Businesses who use them — even unknowingly — can be held partially liable.
+          </p>
 
-        <img src="images/unlicensed-carrier.png" alt="Risks of unlicensed waste carriers" class="blog-image">
+          <h3>Consequences of Using an Unlicensed Carrier</h3>
+          <ul>
+            <li>Prosecution under Duty of Care law</li>
+            <li>Fixed penalty notices</li>
+            <li>Costs for clean-up or remediation</li>
+            <li>Reputational damage</li>
+          </ul>
 
-        <p>
-          The UK waste industry still suffers from fly-tipping and illegal waste movements. 
-          Many of these incidents originate from unregistered carriers offering "cheap" disposal services.
-          Businesses who use them — even unknowingly — can be held partially liable.
-        </p>
+          <h3>How to Stay Compliant</h3>
+          <ul>
+            <li>Check the carrier on the EA public register</li>
+            <li>Request a Waste Transfer Note for every collection</li>
+            <li>Ensure EWC codes are accurate</li>
+            <li>Confirm the disposal site is permitted</li>
+          </ul>
 
-        <h3>Consequences of Using an Unlicensed Carrier</h3>
-        <ul>
-          <li>Prosecution under Duty of Care law</li>
-          <li>Fixed penalty notices</li>
-          <li>Costs for clean-up or remediation</li>
-          <li>Reputational damage</li>
-        </ul>
-
-        <h3>How to Stay Compliant</h3>
-        <ul>
-          <li>Check the carrier on the EA public register</li>
-          <li>Request a Waste Transfer Note for every collection</li>
-          <li>Ensure EWC codes are accurate</li>
-          <li>Confirm the disposal site is permitted</li>
-        </ul>
-
-        <p>
-          You can instantly verify a carrier here:
-        </p>
-        <p>
-          <a href="https://environment.data.gov.uk/public-register/view/search-waste-carriers-brokers" target="_blank">
-            Environment Agency Public Register
-          </a>
-        </p>
+          <p>
+            You can instantly verify a carrier here:
+          </p>
+          <p>
+            <a href="https://environment.data.gov.uk/public-register/view/search-waste-carriers-brokers" target="_blank">
+              Environment Agency Public Register
+            </a>
+          </p>
+        </div>
       </article>
 
-<!-- BLOG POST: WHAT IS A WASTE TRANSFER NOTE -->
-<section class="faq-section">
-    <div class="faq-item">
-        <button class="faq-question">What Is a Waste Transfer Note?</button>
-        <div class="faq-answer">
+      <article class="accordion-item">
+        <div class="accordion-header collapsed">
+            <h2>What Is a Waste Transfer Note?</h2>
+            <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
             <p>
                 A Waste Transfer Note (WTN) is a legal document required whenever waste changes hands between
                 two parties—whether for collection, transport, or disposal. It forms the audit trail proving
@@ -352,14 +414,14 @@
                 </a>
             </p>
         </div>
-    </div>
-</section>
+      </article>
 
-<!-- BLOG POST: HOW TO CHOOSE A COMPLIANT WASTE CONTRACTOR -->
-<section class="faq-section">
-    <div class="faq-item">
-        <button class="faq-question">How to Choose a Compliant Waste Contractor</button>
-        <div class="faq-answer">
+      <article class="accordion-item">
+        <div class="accordion-header collapsed">
+            <h2>How to Choose a Compliant Waste Contractor</h2>
+            <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
             <p>
                 Choosing a compliant waste contractor is essential to protecting your business from
                 legal risk, financial penalties, and environmental harm. Under UK Duty of Care laws,
@@ -389,14 +451,14 @@
                 where the waste is processed. Avoid any company that cannot show documentation.
             </p>
         </div>
-    </div>
-</section>
+      </article>
 
-<!-- BLOG POST: WHAT CHECKS SHOULD YOU DO BEFORE TIPPING AT A WASTE SITE -->
-<section class="faq-section">
-    <div class="faq-item">
-        <button class="faq-question">What Checks Should You Do Before Tipping at a Waste Site?</button>
-        <div class="faq-answer">
+      <article class="accordion-item">
+        <div class="accordion-header collapsed">
+            <h2>What Checks Should You Do Before Tipping at a Waste Site?</h2>
+            <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
             <p>
                 Before tipping any waste at a disposal or treatment facility, both waste producers and carriers
                 have a responsibility to ensure that the site is compliant, permitted, safe, and suitable for
@@ -429,10 +491,9 @@
                 Never tip at a site if you are unsure about its legal status or suitability.
             </p>
         </div>
-    </div>
-</section>
+      </article>
 
-      
+
     </div>
 
     <footer>
@@ -441,6 +502,43 @@
     </footer>
   </div>
 
-  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // JavaScript for Accordion Functionality
+    document.addEventListener('DOMContentLoaded', () => {
+        const headers = document.querySelectorAll('.accordion-header');
+
+        headers.forEach(header => {
+            header.addEventListener('click', () => {
+                const item = header.closest('.accordion-item');
+                const content = item.querySelector('.accordion-content');
+                
+                // Toggle the 'expanded' class on the content
+                const isExpanded = content.classList.contains('expanded');
+                
+                // Close all other open items
+                document.querySelectorAll('.accordion-content.expanded').forEach(openContent => {
+                    if (openContent !== content) {
+                        openContent.classList.remove('expanded');
+                        openContent.previousElementSibling.classList.add('collapsed');
+                        openContent.previousElementSibling.classList.remove('expanded');
+                    }
+                });
+
+                // Toggle the current item
+                if (!isExpanded) {
+                    content.classList.add('expanded');
+                    header.classList.add('expanded');
+                    header.classList.remove('collapsed');
+                } else {
+                    content.classList.remove('expanded');
+                    header.classList.add('collapsed');
+                    header.classList.remove('expanded');
+                }
+            });
+        });
+    });
+  </script>
 </body>
 </html>
