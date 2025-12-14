@@ -3,6 +3,8 @@ import { ChevronDown, Search, MapPin, Phone, Mail, Globe, LogIn, LogOut, Setting
 import { supabase } from './supabaseClient';
 import { loadStripe } from '@stripe/stripe-js';
 import Footer from './Footer';
+import { BookOpen } from 'lucide-react';
+
 
 
 // Initialize Stripe - Replace with your publishable key
@@ -727,6 +729,18 @@ if (currentView === 'facility-dashboard' && user && userProfile?.owns_facility) 
                       <User className="w-4 h-4" />
                       My Profile
                     </button>
+
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      window.location.href = '/blog';
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-200"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    Blog & Resources
+                  </button>
+                    
                     <button
                       onClick={() => {
                         setShowUserMenu(false);
