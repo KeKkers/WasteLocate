@@ -767,146 +767,17 @@ if (currentView === 'facility-dashboard' && user && userProfile?.owns_facility) 
         </div>
 
 
-
-
-
-
-        
-        <div className="bg-white rounded-lg shadow-xl p-6 md:p-8 mb-6">
-  <h1 className="text-3xl font-bold text-gray-800 mb-4">
+        <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg shadow-lg p-6 md:p-8 mb-6 border-2 border-green-200">
+  <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
     UK Waste Management Made Simple: Find Licensed Facilities & Ensure Compliance
   </h1>
   
-  <div className="prose max-w-none text-gray-700 space-y-4">
-    <p className="text-lg leading-relaxed">
-      WasteLocate is the UK's comprehensive waste facility directory, designed to connect waste producers with licensed disposal sites while helping businesses maintain regulatory compliance. Whether you're managing construction waste, industrial by-products, or commercial refuse, our platform simplifies the complex process of finding appropriate, permitted facilities for your specific waste streams.
-    </p>
-
-    <h2 className="text-2xl font-semibold text-gray-800 mt-6 mb-3">
-      How WasteLocate Works for Waste Producers
-    </h2>
-    
-    <p className="leading-relaxed">
-      Finding the right waste facility doesn't need to be complicated. Our intuitive three-step process guides you through the European Waste Catalogue (EWC) hierarchy to identify your exact waste code. Start by selecting the chapter that represents where your waste originates—whether that's construction and demolition, manufacturing processes, or service industries. Next, narrow down to the specific subprocess or activity that generates your waste. Finally, select the precise six-digit EWC code that matches your waste stream.
-    </p>
-
-    <p className="leading-relaxed">
-      Once you've identified your waste code, WasteLocate instantly searches our comprehensive database of UK waste facilities to show you all permitted sites that can legally accept your waste type. Each facility listing includes crucial information: the operator's contact details, permit numbers for verification, facility addresses with postcode-based distance sorting, capacity information, and indicative pricing where available. This means you can make informed decisions about waste disposal quickly and efficiently, without spending hours researching individual permits or making countless phone calls.
-    </p>
-
-    <h2 className="text-2xl font-semibold text-gray-800 mt-6 mb-3">
-      Compliance Verification and Due Diligence
-    </h2>
-    
-    <p className="leading-relaxed">
-      Under the Environmental Protection Act 1990 and the Waste (England and Wales) Regulations 2011, businesses have a legal Duty of Care when handling waste. This means you must ensure your waste is properly described, stored, transported, and disposed of at appropriately licensed facilities. Failure to comply can result in significant fines and potential criminal prosecution. WasteLocate serves as an essential compliance tool, helping you fulfill these legal obligations by verifying that facilities have the necessary environmental permits to accept your specific waste streams.
-    </p>
-
-    <p className="leading-relaxed">
-      Our platform enables businesses to perform proper due diligence before engaging with waste contractors or facilities. Every facility in our database includes its Environment Agency permit number, which you can cross-reference with official records. This transparency helps you avoid the serious legal and financial consequences of inadvertently using unlicensed operators or facilities that don't have the appropriate permissions for your waste type. For businesses managing hazardous waste classified as MH (Mirror Hazardous) or AH (Absolute Hazardous), this verification process is particularly critical, as the regulations and penalties are more stringent.
-    </p>
-
-    <p className="leading-relaxed">
-      WasteLocate also assists with waste classification checks—one of the most common areas where businesses fall foul of regulations. By clearly indicating whether a waste code is hazardous or non-hazardous, we help you ensure your waste is correctly classified before disposal. This is crucial because misclassifying hazardous waste as non-hazardous (or vice versa) can lead to environmental damage, regulatory breaches, and substantial fines. While our tool provides guidance, we always recommend following the official WM3 guidance document for definitive waste classification, particularly for complex or borderline cases.
-    </p>
-
-    <h2 className="text-2xl font-semibold text-gray-800 mt-6 mb-3">
-      Supporting Waste Transfer Documentation
-    </h2>
-    
-    <p className="leading-relaxed">
-      When transferring waste, UK law requires proper documentation including waste transfer notes (for non-hazardous waste) or consignment notes (for hazardous waste). These documents must include accurate EWC codes and details of where the waste is being taken. WasteLocate streamlines this process by providing you with verified facility information and correct EWC codes, making it easier to complete your waste transfer documentation accurately. This reduces the risk of errors that could invalidate your paperwork and leave you exposed to regulatory action.
-    </p>
-
-    <p className="leading-relaxed">
-      For businesses that regularly produce the same waste streams, our search history feature (available to registered users) allows you to quickly access previously searched waste codes and facilities. This consistency in your waste management practices not only saves time but also demonstrates a systematic approach to compliance—something that environmental regulators and auditors look for when assessing your waste management procedures.
-    </p>
-
-    <h2 className="text-2xl font-semibold text-gray-800 mt-6 mb-3">
-      For Facility Operators: Get Your Permit Listed
-    </h2>
-    
-    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-5 my-4">
-      <h3 className="text-xl font-semibold text-gray-800 mb-3">
-        Waste Facility Operators
-      </h3>
-      <p className="leading-relaxed mb-3">
-        Do you operate a licensed waste facility in the UK? Ensure your facility is discoverable by the thousands of waste producers using WasteLocate each month. Being listed on our platform increases your visibility to potential customers actively searching for facilities that can accept their specific waste streams.
-      </p>
-      <p className="leading-relaxed mb-3">
-        To have your facility and environmental permit included in our database, simply email your permit details to <a href="mailto:info@wastelocate.co.uk" className="text-blue-600 hover:underline font-semibold">info@wastelocate.co.uk</a>. We'll review your submission and add your facility to help connect you with waste producers in your area. There's no cost to be listed—we believe in supporting the UK's waste management infrastructure by making it easier for legitimate, licensed operators to reach their target market.
-      </p>
-      <p className="leading-relaxed">
-        Once listed, you can also apply to manage your own facility profile, allowing you to update contact details, adjust accepted waste codes, and modify capacity information as your operations evolve. This ensures waste producers always have the most current information about your services.
-      </p>
-    </div>
-
-    <h2 className="text-2xl font-semibold text-gray-800 mt-6 mb-3">
-      Missing Permit? Request a Review
-    </h2>
-    
-    <div className="bg-green-50 border-2 border-green-200 rounded-lg p-5 my-4">
-      <h3 className="text-xl font-semibold text-gray-800 mb-3">
-        For Waste Producers
-      </h3>
-      <p className="leading-relaxed mb-3">
-        Can't find a facility you know should be listed? We're constantly working to expand our database to include all licensed waste facilities across the UK. If you've searched for a waste code and notice that a facility with the appropriate environmental permit isn't featured in our results, we want to know about it.
-      </p>
-      <p className="leading-relaxed mb-3">
-        Simply email the facility details and permit number to <a href="mailto:info@wastelocate.co.uk" className="text-blue-600 hover:underline font-semibold">info@wastelocate.co.uk</a>, and our team will review and add it to our database free of charge. This community-driven approach helps ensure WasteLocate remains the most comprehensive waste facility directory in the UK, benefiting all users by providing the widest possible choice of compliant disposal options.
-      </p>
-      <p className="leading-relaxed">
-        Your feedback also helps us identify gaps in coverage and prioritize which regions or waste streams need additional facility listings, making the platform more valuable for everyone in the waste management sector.
-      </p>
-    </div>
-
-    <h2 className="text-2xl font-semibold text-gray-800 mt-6 mb-3">
-      Distance-Based Search and Local Solutions
-    </h2>
-    
-    <p className="leading-relaxed">
-      Environmental responsibility increasingly means minimizing waste miles—the distance waste travels from generation to final disposal. Transporting waste long distances increases carbon emissions, fuel costs, and the overall environmental impact of waste management. WasteLocate's postcode-based distance sorting helps you identify the nearest appropriate facilities, supporting both environmental objectives and cost reduction.
-    </p>
-
-    <p className="leading-relaxed">
-      By entering your postcode, you can see facilities ranked by proximity, with distances calculated in miles. This feature is particularly valuable for high-volume waste producers or those managing regular waste collections, where transportation costs form a significant portion of overall waste management expenses. Choosing local facilities where possible also supports regional economic development and reduces the traffic impact of waste transportation on road networks.
-    </p>
-
-    <h2 className="text-2xl font-semibold text-gray-800 mt-6 mb-3">
-      Understanding EWC Codes and Waste Classification
-    </h2>
-    
-    <p className="leading-relaxed">
-      The European Waste Catalogue provides a standardized system for classifying waste across all member states (and continues to be used in the UK post-Brexit). Each waste type is assigned a six-digit code, structured hierarchically: the first two digits represent the chapter (waste source), the next two represent the subchapter (specific process), and the final two identify the exact waste type. This system ensures clarity and consistency when discussing waste types with regulators, contractors, and disposal facilities.
-    </p>
-
-    <p className="leading-relaxed">
-      Some waste codes are marked as "mirror entries," meaning they have both hazardous (marked with an asterisk or designated MH/AH) and non-hazardous (marked AN/MN) versions depending on the waste's properties. Correctly determining which applies to your waste is crucial, as hazardous and non-hazardous wastes are subject to different regulations, handling requirements, and disposal routes. WasteLocate clearly indicates whether codes are hazardous or non-hazardous, but final classification responsibility remains with the waste producer, supported by appropriate testing and assessment as outlined in WM3 guidance.
-    </p>
-
-    <h2 className="text-2xl font-semibold text-gray-800 mt-6 mb-3">
-      Planning Ahead and Cost Transparency
-    </h2>
-    
-    <p className="leading-relaxed">
-      Understanding disposal costs before waste is generated allows for better project planning and budgeting. Where facility operators have provided pricing information, WasteLocate displays indicative rates per tonne, giving you a starting point for cost estimates. While final prices will depend on various factors including waste volumes, contamination levels, and specific handling requirements, having baseline pricing information helps you budget accurately and compare options.
-    </p>
-
-    <p className="leading-relaxed">
-      This transparency also helps identify when waste segregation at source might be cost-effective. Some mixed waste streams incur higher disposal costs than separated materials, so understanding the economics can influence your waste management strategy. For construction projects, this information during the planning phase can inform material choices and waste minimization strategies, potentially reducing overall project costs while improving environmental performance.
-    </p>
-
-    <p className="leading-relaxed mt-6 text-sm text-gray-600">
-      WasteLocate is provided as a guidance tool to support your waste management decisions. While we strive for accuracy and completeness, users must always verify facility permits and ensure compliance with current legislation including the Waste (England and Wales) Regulations 2011, Hazardous Waste Regulations 2005, and the Environmental Protection Act 1990. When in doubt, consult the official WM3 guidance or seek professional environmental advice.
-    </p>
-  </div>
+  <p className="text-lg leading-relaxed text-gray-700">
+    WasteLocate is the UK's comprehensive waste facility directory, designed to connect waste producers with licensed disposal sites while helping businesses maintain regulatory compliance. Whether you're managing construction waste, industrial by-products, or commercial refuse, our platform simplifies the complex process of finding appropriate, permitted facilities for your specific waste streams.
+  </p>
 </div>
 
-
-
-
-
-
+        
         
         <div className="bg-white rounded-lg shadow-xl p-6 md:p-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">Select Waste Code</h2>
@@ -1207,6 +1078,145 @@ if (currentView === 'facility-dashboard' && user && userProfile?.owns_facility) 
           </div>
         </div>
 
+        <div className="bg-white rounded-lg shadow-xl p-6 md:p-8 mt-8">
+  <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">
+    Complete Guide to Using WasteLocate
+  </h2>
+  
+  <div className="prose max-w-none text-gray-700 space-y-6">
+    <div>
+      <h3 className="text-xl font-semibold text-gray-800 mb-3">
+        How WasteLocate Works for Waste Producers
+      </h3>
+      
+      <p className="leading-relaxed mb-4">
+        Finding the right waste facility doesn't need to be complicated. Our intuitive three-step process guides you through the European Waste Catalogue (EWC) hierarchy to identify your exact waste code. Start by selecting the chapter that represents where your waste originates—whether that's construction and demolition, manufacturing processes, or service industries. Next, narrow down to the specific subprocess or activity that generates your waste. Finally, select the precise six-digit EWC code that matches your waste stream.
+      </p>
+
+      <p className="leading-relaxed">
+        Once you've identified your waste code, WasteLocate instantly searches our comprehensive database of UK waste facilities to show you all permitted sites that can legally accept your waste type. Each facility listing includes crucial information: the operator's contact details, permit numbers for verification, facility addresses with postcode-based distance sorting, capacity information, and indicative pricing where available. This means you can make informed decisions about waste disposal quickly and efficiently, without spending hours researching individual permits or making countless phone calls.
+      </p>
+    </div>
+
+    <div className="border-t-2 border-gray-200 pt-6">
+      <h3 className="text-xl font-semibold text-gray-800 mb-3">
+        Compliance Verification and Due Diligence
+      </h3>
+      
+      <p className="leading-relaxed mb-4">
+        Under the Environmental Protection Act 1990 and the Waste (England and Wales) Regulations 2011, businesses have a legal Duty of Care when handling waste. This means you must ensure your waste is properly described, stored, transported, and disposed of at appropriately licensed facilities. Failure to comply can result in significant fines and potential criminal prosecution. WasteLocate serves as an essential compliance tool, helping you fulfill these legal obligations by verifying that facilities have the necessary environmental permits to accept your specific waste streams.
+      </p>
+
+      <p className="leading-relaxed mb-4">
+        Our platform enables businesses to perform proper due diligence before engaging with waste contractors or facilities. Every facility in our database includes its Environment Agency permit number, which you can cross-reference with official records. This transparency helps you avoid the serious legal and financial consequences of inadvertently using unlicensed operators or facilities that don't have the appropriate permissions for your waste type. For businesses managing hazardous waste classified as MH (Mirror Hazardous) or AH (Absolute Hazardous), this verification process is particularly critical, as the regulations and penalties are more stringent.
+      </p>
+
+      <p className="leading-relaxed">
+        WasteLocate also assists with waste classification checks—one of the most common areas where businesses fall foul of regulations. By clearly indicating whether a waste code is hazardous or non-hazardous, we help you ensure your waste is correctly classified before disposal. This is crucial because misclassifying hazardous waste as non-hazardous (or vice versa) can lead to environmental damage, regulatory breaches, and substantial fines. While our tool provides guidance, we always recommend following the official WM3 guidance document for definitive waste classification, particularly for complex or borderline cases.
+      </p>
+    </div>
+
+    <div className="border-t-2 border-gray-200 pt-6">
+      <h3 className="text-xl font-semibold text-gray-800 mb-3">
+        Supporting Waste Transfer Documentation
+      </h3>
+      
+      <p className="leading-relaxed mb-4">
+        When transferring waste, UK law requires proper documentation including waste transfer notes (for non-hazardous waste) or consignment notes (for hazardous waste). These documents must include accurate EWC codes and details of where the waste is being taken. WasteLocate streamlines this process by providing you with verified facility information and correct EWC codes, making it easier to complete your waste transfer documentation accurately. This reduces the risk of errors that could invalidate your paperwork and leave you exposed to regulatory action.
+      </p>
+
+      <p className="leading-relaxed">
+        For businesses that regularly produce the same waste streams, our search history feature (available to registered users) allows you to quickly access previously searched waste codes and facilities. This consistency in your waste management practices not only saves time but also demonstrates a systematic approach to compliance—something that environmental regulators and auditors look for when assessing your waste management procedures.
+      </p>
+    </div>
+
+    <div className="border-t-2 border-gray-200 pt-6">
+      <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6 mb-6">
+        <div className="flex items-start gap-4">
+          <Building2 className="w-8 h-8 text-blue-600 flex-shrink-0 mt-1" />
+          <div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-3">
+              For Facility Operators: Get Your Permit Listed
+            </h3>
+            <p className="leading-relaxed mb-3">
+              Do you operate a licensed waste facility in the UK? Ensure your facility is discoverable by the thousands of waste producers using WasteLocate each month. Being listed on our platform increases your visibility to potential customers actively searching for facilities that can accept their specific waste streams.
+            </p>
+            <p className="leading-relaxed mb-3">
+              To have your facility and environmental permit included in our database, simply email your permit details to <a href="mailto:info@wastelocate.co.uk" className="text-blue-600 hover:underline font-semibold">info@wastelocate.co.uk</a>. We'll review your submission and add your facility to help connect you with waste producers in your area. There's no cost to be listed—we believe in supporting the UK's waste management infrastructure by making it easier for legitimate, licensed operators to reach their target market.
+            </p>
+            <p className="leading-relaxed">
+              Once listed, you can also apply to manage your own facility profile, allowing you to update contact details, adjust accepted waste codes, and modify capacity information as your operations evolve. This ensures waste producers always have the most current information about your services.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6">
+        <div className="flex items-start gap-4">
+          <AlertCircle className="w-8 h-8 text-green-600 flex-shrink-0 mt-1" />
+          <div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-3">
+              Missing Permit? Request a Review
+            </h3>
+            <p className="leading-relaxed mb-3">
+              Can't find a facility you know should be listed? We're constantly working to expand our database to include all licensed waste facilities across the UK. If you've searched for a waste code and notice that a facility with the appropriate environmental permit isn't featured in our results, we want to know about it.
+            </p>
+            <p className="leading-relaxed mb-3">
+              Simply email the facility details and permit number to <a href="mailto:info@wastelocate.co.uk" className="text-blue-600 hover:underline font-semibold">info@wastelocate.co.uk</a>, and our team will review and add it to our database free of charge. This community-driven approach helps ensure WasteLocate remains the most comprehensive waste facility directory in the UK, benefiting all users by providing the widest possible choice of compliant disposal options.
+            </p>
+            <p className="leading-relaxed">
+              Your feedback also helps us identify gaps in coverage and prioritize which regions or waste streams need additional facility listings, making the platform more valuable for everyone in the waste management sector.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="border-t-2 border-gray-200 pt-6">
+      <h3 className="text-xl font-semibold text-gray-800 mb-3">
+        Distance-Based Search and Local Solutions
+      </h3>
+      
+      <p className="leading-relaxed mb-4">
+        Environmental responsibility increasingly means minimizing waste miles—the distance waste travels from generation to final disposal. Transporting waste long distances increases carbon emissions, fuel costs, and the overall environmental impact of waste management. WasteLocate's postcode-based distance sorting helps you identify the nearest appropriate facilities, supporting both environmental objectives and cost reduction.
+      </p>
+
+      <p className="leading-relaxed">
+        By entering your postcode, you can see facilities ranked by proximity, with distances calculated in miles. This feature is particularly valuable for high-volume waste producers or those managing regular waste collections, where transportation costs form a significant portion of overall waste management expenses. Choosing local facilities where possible also supports regional economic development and reduces the traffic impact of waste transportation on road networks.
+      </p>
+    </div>
+
+    <div className="border-t-2 border-gray-200 pt-6">
+      <h3 className="text-xl font-semibold text-gray-800 mb-3">
+        Understanding EWC Codes and Waste Classification
+      </h3>
+      
+      <p className="leading-relaxed mb-4">
+        The European Waste Catalogue provides a standardized system for classifying waste across all member states (and continues to be used in the UK post-Brexit). Each waste type is assigned a six-digit code, structured hierarchically: the first two digits represent the chapter (waste source), the next two represent the subchapter (specific process), and the final two identify the exact waste type. This system ensures clarity and consistency when discussing waste types with regulators, contractors, and disposal facilities.
+      </p>
+
+      <p className="leading-relaxed">
+        Some waste codes are marked as "mirror entries," meaning they have both hazardous (marked with an asterisk or designated MH/AH) and non-hazardous (marked AN/MN) versions depending on the waste's properties. Correctly determining which applies to your waste is crucial, as hazardous and non-hazardous wastes are subject to different regulations, handling requirements, and disposal routes. WasteLocate clearly indicates whether codes are hazardous or non-hazardous, but final classification responsibility remains with the waste producer, supported by appropriate testing and assessment as outlined in WM3 guidance.
+      </p>
+    </div>
+
+    <div className="border-t-2 border-gray-200 pt-6">
+      <h3 className="text-xl font-semibold text-gray-800 mb-3">
+        Planning Ahead and Cost Transparency
+      </h3>
+      
+      <p className="leading-relaxed mb-4">
+        Understanding disposal costs before waste is generated allows for better project planning and budgeting. Where facility operators have provided pricing information, WasteLocate displays indicative rates per tonne, giving you a starting point for cost estimates. While final prices will depend on various factors including waste volumes, contamination levels, and specific handling requirements, having baseline pricing information helps you budget accurately and compare options.
+      </p>
+
+      <p className="leading-relaxed">
+        This transparency also helps identify when waste segregation at source might be cost-effective. Some mixed waste streams incur higher disposal costs than separated materials, so understanding the economics can influence your waste management strategy. For construction projects, this information during the planning phase can inform material choices and waste minimization strategies, potentially reducing overall project costs while improving environmental performance.
+      </p>
+    </div>
+  </div>
+</div>
+
+        
         <Footer />
         
       </div>
