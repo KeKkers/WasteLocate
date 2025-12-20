@@ -3300,27 +3300,30 @@ function ProfileView({ user, userProfile, onBack, onRefreshProfile, onNavigateTo
 
 
 
-          {/* Apply to Manage Facility */}
-{!userProfile?.owns_facility && (
-  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-xl p-6">
-    <div className="flex items-start gap-3">
-      <Building2 className="w-5 h-5 text-blue-600 mt-0.5" />
-      <div className="flex-1">
-        <h3 className="font-semibold text-gray-800 mb-2">Facility Owner?</h3>
-        <p className="text-sm text-gray-700 mb-3">
-          If you own or operate a waste facility, apply to manage your facility listing and keep it up to date.
-        </p>
-<button
-  onClick={onNavigateToApply}
-  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
->
-  <Building2 className="w-4 h-4" />
-  Apply to Manage Facility
-</button>
-      </div>
+{/* Apply to Manage Facility - Always show this */}
+<div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-xl p-6">
+  <div className="flex items-start gap-3">
+    <Building2 className="w-5 h-5 text-blue-600 mt-0.5" />
+    <div className="flex-1">
+      <h3 className="font-semibold text-gray-800 mb-2">
+        {userProfile?.owns_facility ? 'Manage More Facilities?' : 'Facility Owner?'}
+      </h3>
+      <p className="text-sm text-gray-700 mb-3">
+        {userProfile?.owns_facility 
+          ? 'Apply to manage additional waste facilities that you own or operate.'
+          : 'If you own or operate a waste facility, apply to manage your facility listing and keep it up to date.'
+        }
+      </p>
+      <button
+        onClick={onNavigateToApply}
+        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+      >
+        <Building2 className="w-4 h-4" />
+        {userProfile?.owns_facility ? 'Apply for Another Facility' : 'Apply to Manage Facility'}
+      </button>
     </div>
   </div>
-)}
+</div>
 
           {/* Search History */}
           <div className="bg-white rounded-lg shadow-xl p-6">
@@ -3629,7 +3632,8 @@ function FacilityApplicationView({ user, onBack, facilities }) {
 }
 
 function FacilityOwnerDashboard({ user, userProfile, onBack }) {
-  const [myFacility, setMyFacility] = useState(null);
+  const [myFacilities, setMyFacilities] = useState([]);
+  const [selectedFacility, setSelectedFacility] = useState(null);
   const [wasteCodes, setWasteCodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingFacility, setEditingFacility] = useState(false);
@@ -3637,38 +3641,51 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
   const [editingCode, setEditingCode] = useState(null);
   const [facilityForm, setFacilityForm] = useState({});
 
-  useEffect(() => {
-    loadMyFacility();
+useEffect(() => {
+    if (user) {
+      loadMyFacility();
+    }
   }, [user]);
 
-  const loadMyFacility = async () => {
+const loadMyFacility = async () => {
     setLoading(true);
     try {
-      // Load facility owned by this user
+      // Load all facilities owned by this user
       const { data: facilityData, error: facilityError } = await supabase
-  .from('facilities')
-  .select('*')
-  .eq('owner_id', user.id)
-  .single();
+        .from('facilities')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order('name');
+
+      console.log('Loaded facilities:', facilityData); // ADD THIS LINE
+      console.log('Number of facilities:', facilityData?.length); // ADD THIS LINE
 
       if (facilityError) {
-        if (facilityError.code === 'PGRST116') {
-          // No facility found
-          setMyFacility(null);
-        } else {
-          throw facilityError;
-        }
+        throw facilityError;
+      }
+      
+      if (!facilityData || facilityData.length === 0) {
+        setMyFacilities([]);
+        setSelectedFacility(null);
       } else {
-        setMyFacility(facilityData);
-        setFacilityForm(facilityData);
-        loadWasteCodes(facilityData.id);
+        setMyFacilities(facilityData);
+        // Auto-select first facility if only one, or if none selected yet
+        if (facilityData.length === 1 || !selectedFacility) {
+          handleSelectFacility(facilityData[0]);
+        }
       }
     } catch (error) {
-      console.error('Error loading facility:', error);
-      alert('Error loading your facility: ' + error.message);
+      console.error('Error loading facilities:', error);
+      alert('Error loading your facilities: ' + error.message);
     } finally {
       setLoading(false);
     }
+  }; 
+
+  const handleSelectFacility = (facility) => {
+    setSelectedFacility(facility);
+    setFacilityForm(facility);
+    loadWasteCodes(facility.id);
   };
 
   const loadWasteCodes = async (facilityId) => {
@@ -3685,7 +3702,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
     }
   };
 
-  const updateFacility = async () => {
+const updateFacility = async () => {
     try {
       const { error } = await supabase
         .from('facilities')
@@ -3700,7 +3717,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
           email: facilityForm.email,
           website: facilityForm.website
         })
-        .eq('id', myFacility.id);
+        .eq('id', selectedFacility.id);
 
       if (error) throw error;
 
@@ -3712,7 +3729,6 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
       alert('Error updating facility: ' + error.message);
     }
   };
-
   const deleteWasteCode = async (codeId) => {
     if (!confirm('Are you sure you want to remove this waste code?')) return;
 
@@ -3724,7 +3740,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
     if (error) {
       alert('Error deleting waste code: ' + error.message);
     } else {
-      loadWasteCodes(myFacility.id);
+      loadWasteCodes(selectedFacility.id);
     }
   };
 
@@ -3739,7 +3755,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
     );
   }
 
-  if (!myFacility) {
+if (myFacilities.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
@@ -3752,9 +3768,9 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
           </button>
           <div className="bg-white rounded-lg shadow-xl p-8 text-center">
             <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">No Facility Assigned</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">No Facilities Assigned</h2>
             <p className="text-gray-600">
-              You don't have a facility assigned to your account yet.
+              You don't have any facilities assigned to your account yet.
             </p>
           </div>
         </div>
@@ -3765,7 +3781,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
+{/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <button
@@ -3776,11 +3792,35 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
               Back
             </button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">My Facility Dashboard</h1>
+              <h1 className="text-3xl font-bold text-gray-800">My Facilities Dashboard</h1>
               <p className="text-gray-600">Manage your facility information and waste codes</p>
             </div>
           </div>
         </div>
+
+        {/* Facility Selector (if multiple facilities) */}
+        {myFacilities.length > 1 && (
+          <div className="bg-white rounded-lg shadow-xl p-4 mb-6">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Select Facility to Manage
+            </label>
+            <select
+              value={selectedFacility?.id || ''}
+              onChange={(e) => {
+                const facility = myFacilities.find(f => f.id === e.target.value);
+                if (facility) handleSelectFacility(facility);
+              }}
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-lg"
+            >
+              {myFacilities.map(facility => (
+                <option key={facility.id} value={facility.id}>
+                  {facility.name} - {facility.permit_number}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
 
         {/* Facility Information */}
         <div className="bg-white rounded-lg shadow-xl p-6 mb-6">
@@ -3827,7 +3867,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.name}</p>
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{selectedFacility.name}</p>
               )}
             </div>
 
@@ -3841,13 +3881,13 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.operator_name || '-'}</p>
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{selectedFacility.operator_name || '-'}</p>
               )}
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-2">Permit Number</label>
-              <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800 font-mono">{myFacility.permit_number}</p>
+              <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800 font-mono">{selectedFacility.permit_number}</p>
               <p className="text-xs text-gray-500 mt-1">Contact admin to change permit number</p>
             </div>
 
@@ -3861,7 +3901,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.address_line1 || '-'}</p>
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{selectedFacility.address_line1 || '-'}</p>
               )}
             </div>
 
@@ -3875,7 +3915,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.address_line2 || '-'}</p>
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{selectedFacility.address_line2 || '-'}</p>
               )}
             </div>
 
@@ -3889,7 +3929,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.city || '-'}</p>
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{selectedFacility.city || '-'}</p>
               )}
             </div>
 
@@ -3903,7 +3943,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.postcode}</p>
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{selectedFacility.postcode}</p>
               )}
             </div>
 
@@ -3917,7 +3957,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.phone || '-'}</p>
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{selectedFacility.phone || '-'}</p>
               )}
             </div>
 
@@ -3931,7 +3971,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.email || '-'}</p>
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{selectedFacility.email || '-'}</p>
               )}
             </div>
 
@@ -3946,7 +3986,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{myFacility.website || '-'}</p>
+                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{selectedFacility.website || '-'}</p>
               )}
             </div>
           </div>
@@ -3963,6 +4003,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
             </div>
             <button
               onClick={() => setShowAddCodeModal(true)}
+              disabled={!selectedFacility}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
             >
               <Plus className="w-4 h-4" />
@@ -4030,11 +4071,11 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
       {/* Add Waste Code Modal */}
       {showAddCodeModal && (
         <OwnerAddWasteCodeModal
-          facilityId={myFacility.id}
+          facilityId={selectedFacility.id}
           onClose={() => setShowAddCodeModal(false)}
           onSuccess={() => {
             setShowAddCodeModal(false);
-            loadWasteCodes(myFacility.id);
+            loadWasteCodes(selectedFacility.id);
           }}
         />
       )}
@@ -4046,7 +4087,7 @@ function FacilityOwnerDashboard({ user, userProfile, onBack }) {
           onClose={() => setEditingCode(null)}
           onSuccess={() => {
             setEditingCode(null);
-            loadWasteCodes(myFacility.id);
+            loadWasteCodes(selectedFacility.id);
           }}
         />
       )}
@@ -4343,6 +4384,7 @@ function ResetPasswordView({ onBack }) {
     </div>
   );
 }
+
 
 
 
