@@ -187,6 +187,12 @@ function Footer() {
               Privacy Policy
             </a>
             <a 
+              href="/cookies.html" 
+             className="text-sm text-gray-600 hover:text-green-600 transition-colors flex items-center gap-1"
+           >
+            Cookie Policy
+          </a>
+            <a 
               href="/terms.html" 
               className="text-sm text-gray-600 hover:text-green-600 transition-colors flex items-center gap-1"
             >
