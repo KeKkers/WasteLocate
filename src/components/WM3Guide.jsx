@@ -39,6 +39,107 @@ export default function WM3Guide({ onClose, onSelectEWC, searchEWCCodes, isHazar
     if (selectedResult && onSelectEWC) { onSelectEWC(selectedResult); onClose(); }
   };
 
+  const ANSWER_LABELS = {
+    needs_classification: { yes: 'Yes — requires classification', excluded: 'No — falls within WM3 Box 2.1 exclusion', unsure: 'Unsure — proceeded as precaution' },
+    origin: {
+      construction: 'Construction & demolition (Chapter 17)', municipal: 'Municipal / household (Chapter 20)',
+      packaging: 'Packaging & absorbents (Chapter 15)', healthcare: 'Healthcare / veterinary (Chapter 18)',
+      oils_solvents: 'Oils, solvents & fuels (Ch. 13–14)', vehicle: 'Vehicles, tyres & batteries (Ch. 16 01/06)',
+      electrical: 'Electrical & electronic / WEEE (Ch. 16 02)', industrial: 'Industrial / manufacturing (Ch. 04–12)',
+      mixed: 'Mixed / non-specific (Chapter 16)', other: 'Other / not specified',
+    },
+    entry_type: {
+      absolute_hazardous: 'Absolute Hazardous (AH) — marked *',
+      absolute_non: 'Absolute Non-Hazardous (AN) — no * version exists',
+      mirror: 'Mirror entry — both * and non-* versions exist',
+      unsure: 'Not yet identified — returned to Step 2',
+    },
+    substances_found: {
+      hazardous_found: 'One or more hazardous substances / POPs identified',
+      none_found: 'No hazardous substances or POPs identified',
+      uncertain: 'Uncertain — worst-case assumption applied',
+    },
+    hp_result: {
+      hazardous: 'One or more HP properties apply, or POPs above limits — HAZARDOUS',
+      non_hazardous: 'No HP properties apply and no POPs above limits — NON-HAZARDOUS',
+      uncertain: 'Uncertain — laboratory testing required (treated as hazardous)',
+    },
+  };
+
+  const downloadRecord = () => {
+    const isHaz = answers.entry_type === 'absolute_hazardous' || answers.hp_result === 'hazardous' || answers.hp_result === 'uncertain';
+    const isNonHaz = answers.entry_type === 'absolute_non' || answers.hp_result === 'non_hazardous' || answers.substances_found === 'none_found';
+    const classification = isHaz ? 'HAZARDOUS' : isNonHaz ? 'NON-HAZARDOUS' : 'UNDETERMINED';
+    const docType = isHaz ? 'Consignment Note' : isNonHaz ? 'Waste Transfer Note (WTN)' : '—';
+    const classColour = isHaz ? '#b91c1c' : isNonHaz ? '#15803d' : '#92400e';
+
+    const row = (label, value) => value ? `
+      <tr>
+        <td style="padding:6px 10px;font-weight:600;color:#374151;width:38%;border-bottom:1px solid #e5e7eb;vertical-align:top">${label}</td>
+        <td style="padding:6px 10px;color:#111827;border-bottom:1px solid #e5e7eb">${value}</td>
+      </tr>` : '';
+
+    const section = (title) => `
+      <tr><td colspan="2" style="padding:10px 10px 4px;font-weight:700;font-size:13px;color:#166534;background:#f0fdf4;border-top:2px solid #16a34a">${title}</td></tr>`;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>WM3 Classification Record</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 12px; color: #111; margin: 0; padding: 24px; }
+      h1 { font-size: 18px; margin: 0 0 2px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+      .badge { display:inline-block; padding:4px 12px; border-radius:4px; font-weight:700; font-size:14px; color:white; background:${classColour}; }
+      .footer { margin-top:24px; font-size:10px; color:#6b7280; border-top:1px solid #e5e7eb; padding-top:8px; }
+      @media print { body { padding: 12px; } }
+    </style>
+    </head><body>
+    <div style="border-bottom:3px solid #15803d;padding-bottom:10px;margin-bottom:4px">
+      <div style="font-size:10px;font-weight:700;color:#15803d;letter-spacing:1px;text-transform:uppercase">Environment Agency — WM3 Technical Guidance v1.2 GB</div>
+      <h1>Waste Classification Record</h1>
+      <div style="font-size:11px;color:#6b7280">Generated: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+    </div>
+    <div style="margin-top:12px">
+      <span class="badge">${classification}</span>
+      <span style="margin-left:12px;font-size:12px;color:#374151">Documentation required: <strong>${docType}</strong></span>
+    </div>
+    <table>
+      ${section('Step 1 — Classification requirement')}
+      ${row('Needs classification?', ANSWER_LABELS.needs_classification[answers.needs_classification])}
+      ${answers.needs_classification !== 'excluded' ? `
+      ${section('Step 2 — Waste origin / EWC chapter')}
+      ${row('Waste origin', ANSWER_LABELS.origin[answers.origin])}
+      ${section('Step 3 — Entry type &amp; EWC code')}
+      ${row('Entry type', ANSWER_LABELS.entry_type[answers.entry_type])}
+      ${selectedResult ? row('EWC code', `<span style="font-family:monospace;font-weight:700">${selectedResult.code}</span> — ${selectedResult.description}`) : ''}
+      ${selectedResult ? row('Chapter / sub-chapter', `${selectedResult.chapterKey} · ${selectedResult.subName}`) : ''}
+      ${answers.entry_type === 'mirror' ? `
+      ${section('Steps 4–5 — Composition &amp; hazardous substances')}
+      ${row('Substances / POPs outcome', ANSWER_LABELS.substances_found[answers.substances_found])}
+      ${(answers.substances_found === 'hazardous_found' || answers.substances_found === 'uncertain') ? `
+      ${section('Step 6 — HP1–HP15 assessment')}
+      ${row('HP assessment result', ANSWER_LABELS.hp_result[answers.hp_result])}
+      ` : ''}` : ''}
+      ${section('Step 7 — Final classification')}
+      ${row('Classification', `<strong style="color:${classColour}">${classification}</strong>`)}
+      ${row('Documentation required', docType)}
+      ` : ''}
+    </table>
+    <div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      ${['Prepared by (print name)', 'Signature', 'Date', 'Position / role'].map(l =>
+        `<div><div style="font-size:10px;color:#6b7280;margin-bottom:4px">${l}</div><div style="border-bottom:1px solid #999;height:24px"></div></div>`
+      ).join('')}
+    </div>
+    <div class="footer">
+      WM3 Waste Classification Record · This document assists with waste classification. Final responsibility rests with the waste producer. Refer to full WM3 guidance at gov.uk for complex cases.
+    </div>
+    <script>window.onload = () => { window.print(); }<\/script>
+    </body></html>`;
+
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+  };
+
   const HP_PROPERTIES = [
     { code: 'HP1',  name: 'Explosive',                                    desc: 'Waste which can cause explosion by flame, shock or friction' },
     { code: 'HP2',  name: 'Oxidising',                                    desc: 'Waste which causes or contributes to combustion of other materials' },
@@ -429,6 +530,10 @@ export default function WM3Guide({ onClose, onSelectEWC, searchEWCCodes, isHazar
             <button onClick={handleConfirm} disabled={!selectedResult}
               className="w-full py-3 bg-green-700 hover:bg-green-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors">
               Use this EWC code & search for facilities <ArrowRight className="w-4 h-4" />
+            </button>
+            <button onClick={downloadRecord}
+              className="w-full py-3 bg-white hover:bg-gray-50 border-2 border-green-700 text-green-700 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors">
+              <FileText className="w-4 h-4" /> Download Classification Record (PDF)
             </button>
           </div>
         );
