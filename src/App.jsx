@@ -16,6 +16,8 @@ import ProfileView from './views/ProfileView';
 import FacilityApplicationView from './views/FacilityApplicationView';
 import FacilityOwnerDashboard from './views/FacilityOwnerDashboard';
 import AdminPanel from './admin/AdminPanel';
+import BlogView from './views/BlogView';
+import BlogScroller from './components/BlogScroller';
 
 export default function App() {
   const [currentView, setCurrentView] = useState('public');
@@ -123,6 +125,7 @@ export default function App() {
     return <FacilityApplicationView user={user} onBack={() => setCurrentView('public')} facilities={adminFacilities} />;
   }
   if (currentView === 'facility-dashboard' && user && userProfile?.owns_facility) return <FacilityOwnerDashboard user={user} userProfile={userProfile} onBack={() => setCurrentView('public')} />;
+  if (currentView === 'blog') return <BlogView onBack={() => setCurrentView('public')} />;
 
   // ── Derived data ───────────────────────────────────────────────────────────
   const chapters = getChapters();
@@ -199,7 +202,7 @@ export default function App() {
                     <button onClick={() => { setShowUserMenu(false); setCurrentView('profile'); }} className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-200">
                       <User className="w-4 h-4" />My Profile
                     </button>
-                    <button onClick={() => { setShowUserMenu(false); window.location.href = '/blog'; }} className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-200">
+                    <button onClick={() => { setShowUserMenu(false); setCurrentView('blog'); }} className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-200">
                       <BookOpen className="w-4 h-4" />Blog & Resources
                     </button>
                     <button onClick={() => { setShowUserMenu(false); handleLogout(); }} className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-200">
@@ -568,6 +571,8 @@ export default function App() {
             )}
           </div>
         </div>
+
+        <BlogScroller onNavigateToBlog={() => setCurrentView('blog')} />
 
         <Footer />
       </div>
