@@ -574,7 +574,7 @@ export default function App() {
 
         <BlogScroller onNavigateToBlog={() => setCurrentView('blog')} />
 
-        <Footer />
+        <Footer onNavigateToBlog={() => setCurrentView('blog')} />
       </div>
     </div>
   );

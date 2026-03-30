@@ -1,7 +1,7 @@
 import React from 'react';
 import { Mail, Phone, MapPin, Linkedin, Twitter, Facebook, Shield, FileText, Cookie } from 'lucide-react';
 
-function Footer() {
+function Footer({ onNavigateToBlog }) {
   const currentYear = new Date().getFullYear();
 
   return (
@@ -86,10 +86,10 @@ function Footer() {
                   FAQ
                 </a>
               </li>
-               <li>
-                <a href="/blog.html" className="text-sm text-gray-600 hover:text-green-600 transition-colors">
+              <li>
+                <button onClick={onNavigateToBlog} className="text-sm text-gray-600 hover:text-green-600 transition-colors">
                   Blog
-                </a>
+                </button>
               </li>
                <li>
                 <a href="/contact.html" className="text-sm text-gray-600 hover:text-green-600 transition-colors">
